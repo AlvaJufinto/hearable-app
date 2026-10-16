@@ -32,13 +32,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 const EQUALIZER_HEIGHTS = [16, 28, 36, 20, 32, 40, 24, 32, 16, 8, 8];
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-	1: "Pemula",
-	2: "Dasar",
-	3: "Menengah",
-	4: "Mahir",
-};
-
 function formatTime(ms: number) {
 	const totalSec = Math.floor(ms / 1000);
 	const min = Math.floor(totalSec / 60);
@@ -205,14 +198,22 @@ function QuestionView({
 			<AccessibleNote />
 
 			<View style={styles.optionsSection}>
-				{question.options?.map((option) => (
-					<RadioOption
-						key={option.id}
-						label={option.text}
-						selected={selectedAnswerId === option.id}
-						onSelect={() => onSelectAnswer(option.id)}
-					/>
-				))}
+				{question.options?.map((option, i) => {
+					//console.log("=========================", i + 1);
+					//console.log(
+					//	"🚀 ~ QuestionView ~ question.options:",
+					//	question.options,
+					//);
+
+					return (
+						<RadioOption
+							key={option.id}
+							label={option.text}
+							selected={selectedAnswerId === option.id}
+							onSelect={() => onSelectAnswer(option.id)}
+						/>
+					);
+				})}
 			</View>
 
 			<View style={styles.bottomAction}>
@@ -275,7 +276,7 @@ export default function RecognitionScreen() {
 	useEffect(() => {
 		if (phase.status === "done") {
 			setRecognitionDone(phase.correctAnswers, phase.totalQuestions);
-			router.push("/speaking");
+			router.push("/completion");
 		}
 	}, [phase, setRecognitionDone]);
 
@@ -309,24 +310,21 @@ export default function RecognitionScreen() {
 					</Text>
 				</View>
 
-				{phase.modules.map((module) => {
-					return (
-						<SharedModuleCard
-							key={module.id}
-							title={module.title}
-							description={module.description}
-							icon="headset-outline"
-							meta={[
-								{
-									icon: "help-circle-outline",
-									label: `${module.question_count} soal`,
-								},
-							]}
-							difficulty={module.difficulty}
-							onPress={() => startSession(module.id)}
-						/>
-					);
-				})}
+				{phase.modules.map((module) => (
+					<SharedModuleCard
+						key={module.id}
+						title={module.title}
+						description={module.description}
+						meta={[
+							{
+								label: `${module.question_count} soal`,
+								icon: "document-text-outline",
+							},
+						]}
+						difficulty={module.difficulty}
+						onPress={() => startSession(module.id)}
+					/>
+				))}
 			</View>
 		);
 	} else if (phase.status === "starting_session") {
@@ -338,6 +336,23 @@ export default function RecognitionScreen() {
 		);
 	} else if (phase.status === "active") {
 		const question: ListeningQuestion = phase.questions[phase.currentIndex];
+
+		console.log("[Listening] Current question:", {
+			currentIndex: phase.currentIndex,
+			total: phase.total,
+			questionId: question?.id,
+			optionsLength: question?.options?.length,
+			options: question?.options,
+		});
+
+		console.log(
+			"[Listening] All questions:",
+			phase.questions.map((q, index) => ({
+				index,
+				id: q.id,
+				optionsLength: q.options?.length,
+			})),
+		);
 
 		content = (
 			<QuestionView

@@ -1,68 +1,14 @@
 /** @format */
 
 import { router } from "expo-router";
-import {
-	ActivityIndicator,
-	ScrollView,
-	StyleSheet,
-	TouchableOpacity,
-	View,
-} from "react-native";
-import Text from "@/components/ui/Text";
+import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ModuleCard } from "@/components/modules";
+import AuthHeader from "@/components/ui/AuthHeader";
+import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { usePracticeData } from "@/hooks/usePracticeData";
-
-const DIFFICULTY_LABELS = ["", "Pemula", "Dasar", "Menengah", "Mahir"];
-
-function ModuleCard({
-	title,
-	meta,
-	description,
-	iconText,
-	iconBg,
-	iconColor,
-	buttonBg,
-	buttonColor,
-	onPress,
-}: {
-	title: string;
-	meta: string;
-	description: string;
-	iconText: string;
-	iconBg: string;
-	iconColor: string;
-	buttonBg: string;
-	buttonColor: string;
-	onPress: () => void;
-}) {
-	return (
-		<View style={styles.moduleCard}>
-			<View style={styles.moduleCardTop}>
-				<View style={[styles.iconTile, { backgroundColor: iconBg }]}>
-					<Text style={[styles.iconTileText, { color: iconColor }]}>
-						{iconText}
-					</Text>
-				</View>
-				<View style={styles.moduleInfo}>
-					<Text style={styles.moduleTitle}>{title}</Text>
-					<Text style={styles.moduleMeta}>{meta}</Text>
-				</View>
-			</View>
-			<Text style={styles.moduleDesc}>{description}</Text>
-			<TouchableOpacity
-				style={[styles.moduleButton, { backgroundColor: buttonBg }]}
-				activeOpacity={0.8}
-				onPress={onPress}
-			>
-				<Text style={[styles.moduleButtonText, { color: buttonColor }]}>
-					Mulai latihan
-				</Text>
-			</TouchableOpacity>
-		</View>
-	);
-}
 
 export default function PracticeScreen() {
 	const { state } = usePracticeData();
@@ -87,7 +33,9 @@ export default function PracticeScreen() {
 		);
 	}
 
-	const { weeklyCompleted, weeklyGoal, listeningModules, speakingModules } = state;
+	const { weeklyCompleted, weeklyGoal, listeningModules, speakingModules } =
+		state;
+
 	const progress = weeklyGoal > 0 ? weeklyCompleted / weeklyGoal : 0;
 	const totalModules = listeningModules.length + speakingModules.length;
 
@@ -98,12 +46,7 @@ export default function PracticeScreen() {
 				contentContainerStyle={styles.content}
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={styles.header}>
-					<Text style={styles.brandText}>HearAble</Text>
-					<View style={styles.avatar}>
-						<Text style={styles.avatarText}>R</Text>
-					</View>
-				</View>
+				<AuthHeader />
 
 				<View style={styles.titleSection}>
 					<Text style={styles.pageTitle}>Latihan</Text>
@@ -113,10 +56,12 @@ export default function PracticeScreen() {
 				</View>
 
 				<View style={styles.progressCard}>
-					<Text style={styles.progressLabel}>PROGRES MINGGU INI</Text>
+					<Text style={styles.progressLabel}>Progress minggu ini</Text>
+
 					<Text style={styles.progressValue}>
 						{weeklyCompleted} dari {weeklyGoal} latihan selesai
 					</Text>
+
 					<View style={styles.progressTrack}>
 						<View
 							style={[
@@ -125,6 +70,7 @@ export default function PracticeScreen() {
 							]}
 						/>
 					</View>
+
 					<Text style={styles.progressHelper}>
 						Konsisten sedikit demi sedikit, ya!
 					</Text>
@@ -135,32 +81,34 @@ export default function PracticeScreen() {
 					<Text style={styles.moduleCount}>{totalModules} modul</Text>
 				</View>
 
-				{speakingModules.map((m) => (
+				{speakingModules.map((module) => (
 					<ModuleCard
-						key={m.id}
-						title={m.label}
-						meta={`${m.sentence_count} kalimat · ${m.difficulty_label}`}
-						description={m.description}
-						iconText="Aa"
-						iconBg={Colors.secondary + "33"}
-						iconColor={Colors.primary}
-						buttonBg={Colors.secondary + "33"}
-						buttonColor={Colors.primary}
+						key={`speaking-${module.id}`}
+						title={module.label}
+						description={module.description}
+						meta={[
+							{
+								icon: "document-text-outline",
+								label: `${module.sentence_count} kalimat`,
+							},
+						]}
+						difficulty={module.difficulty}
 						onPress={() => router.push("/speaking")}
 					/>
 				))}
 
-				{listeningModules.map((m) => (
+				{listeningModules.map((module) => (
 					<ModuleCard
-						key={m.id}
-						title={m.label}
-						meta={`${m.question_count} audio · ${m.difficulty_label}`}
-						description={m.description}
-						iconText="HS"
-						iconBg={Colors.tertiary + "33"}
-						iconColor={Colors.accent}
-						buttonBg={Colors.tertiary + "33"}
-						buttonColor={Colors.accent}
+						key={`listening-${module.id}`}
+						title={module.label}
+						description={module.description}
+						meta={[
+							{
+								icon: "document-text-outline",
+								label: `${module.question_count} audio`,
+							},
+						]}
+						difficulty={module.difficulty}
 						onPress={() => router.push("/recognition")}
 					/>
 				))}
@@ -170,44 +118,40 @@ export default function PracticeScreen() {
 }
 
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: Colors.background },
-	scrollView: { flex: 1 },
-	content: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl },
-	loadingState: { flex: 1, alignItems: "center", justifyContent: "center" },
-	emptyText: { fontSize: FontSize.md, color: Colors.textSecondary, textAlign: "center" },
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingTop: Spacing.lg,
-		paddingBottom: Spacing.md,
+	safeArea: {
+		flex: 1,
+		backgroundColor: Colors.background,
 	},
-	brandText: {
-		fontSize: FontSize.xl,
-		fontWeight: "800",
-		color: Colors.primary,
+	scrollView: {
+		flex: 1,
 	},
-	avatar: {
-		width: 40,
-		height: 40,
-		borderRadius: Radius.full,
-		backgroundColor: Colors.primary,
+	content: {
+		paddingHorizontal: Spacing.lg,
+		paddingBottom: Spacing.xxl,
+	},
+	loadingState: {
+		flex: 1,
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	avatarText: {
+	emptyText: {
 		fontSize: FontSize.md,
-		fontWeight: "700",
-		color: Colors.textOnPrimary,
+		color: Colors.textSecondary,
+		textAlign: "center",
 	},
-	titleSection: { marginBottom: Spacing.lg },
+	titleSection: {
+		marginBottom: Spacing.lg,
+	},
 	pageTitle: {
 		fontSize: FontSize.xxl,
 		fontWeight: "800",
 		color: Colors.text,
 		marginBottom: Spacing.xs,
 	},
-	pageSubtitle: { fontSize: FontSize.md, color: Colors.textSecondary },
+	pageSubtitle: {
+		fontSize: FontSize.md,
+		color: Colors.textSecondary,
+	},
 	progressCard: {
 		backgroundColor: Colors.surface,
 		borderRadius: Radius.xl,
@@ -224,7 +168,6 @@ const styles = StyleSheet.create({
 		fontSize: FontSize.xs,
 		fontWeight: "600",
 		color: Colors.primary,
-		letterSpacing: 1,
 		marginBottom: Spacing.xs,
 	},
 	progressValue: {
@@ -245,7 +188,10 @@ const styles = StyleSheet.create({
 		backgroundColor: Colors.primary,
 		borderRadius: Radius.full,
 	},
-	progressHelper: { fontSize: FontSize.sm, color: Colors.textSecondary },
+	progressHelper: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
+	},
 	sectionHeader: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -257,55 +203,8 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: Colors.text,
 	},
-	moduleCount: { fontSize: FontSize.sm, color: Colors.textSecondary },
-	moduleCard: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.xl,
-		padding: Spacing.lg,
-		marginBottom: Spacing.md,
-		borderWidth: 1,
-		borderColor: Colors.border,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.06,
-		shadowRadius: 8,
-	},
-	moduleCardTop: {
-		flexDirection: "row",
-		alignItems: "center",
-		marginBottom: Spacing.md,
-		gap: Spacing.md,
-	},
-	iconTile: {
-		width: 48,
-		height: 48,
-		borderRadius: Radius.md,
-		alignItems: "center",
-		justifyContent: "center",
-		flexShrink: 0,
-	},
-	iconTileText: { fontSize: FontSize.lg, fontWeight: "700" },
-	moduleInfo: { flex: 1 },
-	moduleTitle: {
-		fontSize: FontSize.lg,
-		fontWeight: "700",
-		color: Colors.text,
-		marginBottom: 2,
-	},
-	moduleMeta: { fontSize: FontSize.sm, color: Colors.textSecondary },
-	moduleDesc: {
+	moduleCount: {
 		fontSize: FontSize.sm,
 		color: Colors.textSecondary,
-		lineHeight: 20,
-		marginBottom: Spacing.md,
 	},
-	moduleButton: {
-		borderRadius: Radius.lg,
-		paddingVertical: Spacing.sm + 2,
-		alignItems: "center",
-		justifyContent: "center",
-		flexDirection: "row",
-		gap: Spacing.xs,
-	},
-	moduleButtonText: { fontSize: FontSize.md, fontWeight: "600" },
 });

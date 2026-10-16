@@ -9,7 +9,7 @@ import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { Ionicons } from "@expo/vector-icons";
 
 type ModuleCardMeta = {
-	icon: keyof typeof Ionicons.glyphMap;
+	icon: string;
 	label: string;
 };
 
@@ -18,9 +18,10 @@ type ModuleCardProps = {
 	description?: string;
 	meta?: ModuleCardMeta[];
 	difficulty?: number;
-	icon: keyof typeof Ionicons.glyphMap;
 	onPress: () => void;
 };
+
+type ModuleIcon = keyof typeof Ionicons.glyphMap;
 
 const DIFFICULTY_LABELS = ["", "Pemula", "Dasar", "Menengah", "Mahir"];
 
@@ -32,14 +33,102 @@ const DIFFICULTY_COLORS = [
 	Colors.error ?? Colors.textSecondary,
 ];
 
+function getModuleIcon(title: string, description?: string): ModuleIcon {
+	const text = `${title} ${description ?? ""}`.toLowerCase();
+
+	if (
+		text.includes("speaking") ||
+		text.includes("bicara") ||
+		text.includes("ucapan") ||
+		text.includes("kalimat") ||
+		text.includes("pelafalan") ||
+		text.includes("pengucapan")
+	) {
+		return "chatbox-ellipses-outline";
+	}
+
+	if (
+		text.includes("listening") ||
+		text.includes("hearing") ||
+		text.includes("audio") ||
+		text.includes("mendengar") ||
+		text.includes("suara") ||
+		text.includes("bunyi") ||
+		text.includes("pendengaran")
+	) {
+		return "ear-outline";
+	}
+
+	return "book-outline";
+}
+
+function getModuleIconColor(title: string, description?: string): string {
+	const text = `${title} ${description ?? ""}`.toLowerCase();
+
+	if (
+		text.includes("listening") ||
+		text.includes("hearing") ||
+		text.includes("audio") ||
+		text.includes("mendengar") ||
+		text.includes("suara") ||
+		text.includes("bunyi") ||
+		text.includes("pendengaran")
+	) {
+		return Colors.accent;
+	}
+
+	return Colors.primary;
+}
+
+function getMetaIcon(label: string): ModuleIcon {
+	const text = label.toLowerCase();
+
+	if (
+		text.includes("audio") ||
+		text.includes("detik") ||
+		text.includes("menit")
+	) {
+		return "headset-outline";
+	}
+
+	if (
+		text.includes("kalimat") ||
+		text.includes("kata") ||
+		text.includes("ucapan")
+	) {
+		return "chatbubble-outline";
+	}
+
+	if (
+		text.includes("soal") ||
+		text.includes("pertanyaan") ||
+		text.includes("question")
+	) {
+		return "help-circle-outline";
+	}
+
+	if (
+		text.includes("latihan") ||
+		text.includes("sesi") ||
+		text.includes("modul")
+	) {
+		return "layers-outline";
+	}
+
+	return "information-circle-outline";
+}
+
 export function ModuleCard({
 	title,
 	description,
 	meta,
 	difficulty,
-	icon,
 	onPress,
 }: ModuleCardProps) {
+	const icon = getModuleIcon(title, description);
+	const iconColor = getModuleIconColor(title, description);
+	const iconBackground = `${iconColor}20`;
+
 	const difficultyLevel =
 		difficulty !== undefined &&
 		Number.isInteger(difficulty) &&
@@ -69,8 +158,8 @@ export function ModuleCard({
 			accessibilityLabel={title}
 		>
 			<View style={styles.top}>
-				<View style={styles.iconWrap}>
-					<Ionicons name={icon} size={22} color={Colors.primary} />
+				<View style={[styles.iconWrap, { backgroundColor: iconBackground }]}>
+					<Ionicons name={icon} size={22} color={iconColor} />
 				</View>
 
 				<View style={styles.info}>
@@ -95,7 +184,7 @@ export function ModuleCard({
 					{meta?.map((item, index) => (
 						<View key={`${item.label}-${index}`} style={styles.metaItem}>
 							<Ionicons
-								name={item.icon}
+								name={getMetaIcon(item.label)}
 								size={14}
 								color={Colors.textSecondary}
 							/>

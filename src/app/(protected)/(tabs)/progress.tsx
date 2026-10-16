@@ -3,6 +3,7 @@
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AuthHeader from "@/components/ui/AuthHeader";
 import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { useProgressData } from "@/hooks/useProgressData";
@@ -25,9 +26,20 @@ function Divider() {
 }
 
 function StatusChip({ label }: { label: string }) {
+	const isCompleted = label === "Selesai";
+
 	return (
-		<View style={styles.statusChip}>
-			<Text style={styles.statusChipText}>{label}</Text>
+		<View
+			style={[styles.statusChip, isCompleted && styles.statusChipCompleted]}
+		>
+			<Text
+				style={[
+					styles.statusChipText,
+					isCompleted && styles.statusChipTextCompleted,
+				]}
+			>
+				{label}
+			</Text>
 		</View>
 	);
 }
@@ -40,19 +52,23 @@ export default function ProgressScreen() {
 			<SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
 				<View style={styles.loadingState}>
 					<ActivityIndicator size="large" color={Colors.primary} />
+					<Text style={styles.loadingText}>Memuat progres...</Text>
 				</View>
 			</SafeAreaView>
 		);
 	}
 
 	const activity = state.status === "authenticated" ? state.activity : null;
+
 	const history = state.status === "authenticated" ? state.history : [];
 
-	const weeklyCompleted = activity?.completed_sessions ?? 0;
+	const completedSessions = activity?.completed_sessions ?? 0;
 	const currentStreak = activity?.streak_days ?? 0;
 	const dailyActivity = activity?.days ?? [];
-
-	const activeDays = dailyActivity.filter((d) => d.is_active).length;
+	const activeDays =
+		activity?.active_days ??
+		dailyActivity.filter((day) => day.is_active).length;
+	const targetDays = activity?.target_days ?? 5;
 
 	return (
 		<SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -61,13 +77,7 @@ export default function ProgressScreen() {
 				contentContainerStyle={styles.content}
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={styles.header}>
-					<Text style={styles.brandText}>HearAble</Text>
-
-					<View style={styles.avatar}>
-						<Text style={styles.avatarText}>R</Text>
-					</View>
-				</View>
+				<AuthHeader />
 
 				<View style={styles.titleSection}>
 					<Text style={styles.pageTitle}>Progres</Text>
@@ -79,43 +89,48 @@ export default function ProgressScreen() {
 				{activity && (
 					<>
 						<Card style={styles.summaryCard}>
-							<Text style={styles.eyebrow}>RINGKASAN MINGGU INI</Text>
+							<View style={styles.summaryHeading}>
+								<View style={styles.summaryHeadingIcon}>
+									<MaterialCommunityIcons
+										name="chart-box-outline"
+										size={20}
+										color={Colors.primary}
+									/>
+								</View>
+
+								<View style={styles.summaryHeadingInfo}>
+									<Text style={styles.eyebrow}>Ringkasan minggu ini</Text>
+									<Text style={styles.summaryDescription}>
+										Perjalanan latihanmu minggu ini
+									</Text>
+								</View>
+							</View>
 
 							<Divider />
 
 							<View style={styles.metrics}>
 								<View style={styles.metric}>
-									<View
-										style={[
-											styles.metricIcon,
-											{ backgroundColor: Colors.secondary + "33" },
-										]}
-									>
-										<Text
-											style={[styles.metricIconText, { color: Colors.primary }]}
-										>
-											✓
-										</Text>
+									<View style={styles.metricIconPrimary}>
+										<MaterialCommunityIcons
+											name="check-circle-outline"
+											size={22}
+											color={Colors.primary}
+										/>
 									</View>
 
-									<Text style={styles.metricCount}>{weeklyCompleted}</Text>
+									<Text style={styles.metricCount}>{completedSessions}</Text>
 									<Text style={styles.metricLabel}>Latihan selesai</Text>
 								</View>
 
 								<View style={styles.metricDivider} />
 
 								<View style={styles.metric}>
-									<View
-										style={[
-											styles.metricIcon,
-											{ backgroundColor: Colors.tertiary + "33" },
-										]}
-									>
-										<Text
-											style={[styles.metricIconText, { color: Colors.accent }]}
-										>
-											◷
-										</Text>
+									<View style={styles.metricIconAccent}>
+										<MaterialCommunityIcons
+											name="fire"
+											size={22}
+											color={Colors.accent}
+										/>
 									</View>
 
 									<Text style={styles.metricCount}>{currentStreak}</Text>
@@ -129,22 +144,33 @@ export default function ProgressScreen() {
 								<View style={styles.sectionHeadingText}>
 									<Text style={styles.cardTitle}>Aktivitas Mingguan</Text>
 									<Text style={styles.cardSubtitle}>
-										Jumlah sesi latihan per hari
+										Konsistensi latihan setiap hari
 									</Text>
 								</View>
 
 								<View style={styles.weekBadge}>
+									<MaterialCommunityIcons
+										name="calendar-week"
+										size={14}
+										color={Colors.primary}
+									/>
 									<Text style={styles.weekBadgeText}>Minggu ini</Text>
 								</View>
 							</View>
 
 							<View style={styles.chart}>
 								{DAYS.map((day, index) => {
-									const completed = dailyActivity[index]?.is_active ?? false;
+									const isActive = dailyActivity[index]?.is_active ?? false;
+
 									return (
 										<View key={day} style={styles.barCol}>
-											<View style={styles.barTrack}>
-												{completed && (
+											<View
+												style={[
+													styles.barTrack,
+													isActive && styles.barTrackActive,
+												]}
+											>
+												{isActive && (
 													<View style={styles.barFill}>
 														<View style={styles.barHighlight} />
 													</View>
@@ -154,48 +180,90 @@ export default function ProgressScreen() {
 											<Text
 												style={[
 													styles.dayLabel,
-													completed && styles.dayLabelActive,
+													isActive && styles.dayLabelActive,
 												]}
 											>
 												{day}
 											</Text>
+
+											<View
+												style={[
+													styles.dayIndicator,
+													isActive && styles.dayIndicatorActive,
+												]}
+											/>
 										</View>
 									);
 								})}
 							</View>
 
-							<View style={styles.chartFooter}>
+							<Divider />
+
+							{/*<View style={styles.chartFooter}>
 								<View style={styles.legend}>
 									<View style={styles.legendDot} />
-									<Text style={styles.chartFootnote}>Hari latihan</Text>
+									<Text style={styles.chartFootnote}>Hari aktif</Text>
 								</View>
 
-								<Text style={styles.chartTotal}>{activeDays} hari aktif</Text>
-							</View>
+								<Text style={styles.chartTotal}>
+									{activeDays} dari {targetDays} hari target
+								</Text>
+							</View>*/}
+
+							{/*<View style={styles.targetTrack}>
+								<View
+									style={[
+										styles.targetFill,
+										{
+											width: `${Math.min(
+												(activeDays / Math.max(targetDays, 1)) * 100,
+												100,
+											)}%`,
+										},
+									]}
+								/>
+							</View>*/}
 						</Card>
 					</>
 				)}
 
 				<View style={styles.sectionHeader}>
-					<View>
+					<View style={styles.sectionHeadingText}>
 						<Text style={styles.sectionTitle}>Aktivitas Terakhir</Text>
 						<Text style={styles.sectionSubtitle}>
-							Lanjutkan perjalanan belajarmu
+							Riwayat latihan terbarumu
 						</Text>
 					</View>
+
+					{history.length > 0 && (
+						<View style={styles.historyCount}>
+							<Text style={styles.historyCountText}>{history.length}</Text>
+						</View>
+					)}
 				</View>
 
 				{history.length === 0 ? (
-					<Card style={styles.recentCard}>
+					<Card style={styles.emptyCard}>
+						<View style={styles.emptyIcon}>
+							<MaterialCommunityIcons
+								name="book-open-page-variant-outline"
+								size={30}
+								color={Colors.primary}
+							/>
+						</View>
+
+						<Text style={styles.emptyTitle}>Belum ada aktivitas</Text>
 						<Text style={styles.emptyText}>
-							Belum ada aktivitas. Mulai latihan pertamamu!
+							Mulai latihan pertamamu dan progres belajarmu akan muncul di sini.
 						</Text>
 					</Card>
 				) : (
 					<Card style={styles.recentCard}>
 						{history.slice(0, 5).map((item, index) => {
 							const isSpeaking = item.type === "speaking";
-							const progressTotal = item.progress?.total ?? 0;
+							const isCompleted = item.status === "completed";
+							const score = item.average_score;
+
 							return (
 								<View key={item.session_id}>
 									{index > 0 && <Divider />}
@@ -204,15 +272,11 @@ export default function ProgressScreen() {
 										<View
 											style={[
 												styles.recentIcon,
-												{
-													backgroundColor: isSpeaking
-														? Colors.secondary + "33"
-														: Colors.tertiary + "33",
-												},
+												isSpeaking ? styles.speakingIcon : styles.hearingIcon,
 											]}
 										>
 											{isSpeaking ? (
-												<Text style={styles.recentIconText}>Aa</Text>
+												<Text style={styles.speakingIconText}>Aa</Text>
 											) : (
 												<MaterialCommunityIcons
 													name="ear-hearing"
@@ -223,16 +287,31 @@ export default function ProgressScreen() {
 										</View>
 
 										<View style={styles.recentInfo}>
-											<Text style={styles.recentTitle}>
+											<View style={styles.recentTitleRow}>
+												<Text style={styles.recentTitle}>
+													{item.module_title}
+												</Text>
+
+												<MaterialCommunityIcons
+													name="chevron-right"
+													size={20}
+													color={Colors.textSecondary}
+												/>
+											</View>
+
+											<Text style={styles.recentType}>
 												{isSpeaking ? "Latihan Bicara" : "Kenali Suara"}
 											</Text>
 
-											<Text style={styles.recentDetail}>
-												{item.module_name} · {item.average_score ?? 0} dari{" "}
-												{progressTotal}
-											</Text>
+											<View style={styles.recentBottom}>
+												<StatusChip
+													label={isCompleted ? "Selesai" : "Sedang berlangsung"}
+												/>
 
-											{index === 0 && <StatusChip label="Dilanjutkan" />}
+												{score != null && (
+													<Text style={styles.scoreText}>Nilai: {score}</Text>
+												)}
+											</View>
 										</View>
 									</View>
 								</View>
@@ -261,33 +340,14 @@ const styles = StyleSheet.create({
 		flex: 1,
 		alignItems: "center",
 		justifyContent: "center",
+		gap: Spacing.sm,
 	},
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingTop: Spacing.lg,
-		paddingBottom: Spacing.md,
-	},
-	brandText: {
-		fontSize: FontSize.xl,
-		fontWeight: "800",
-		color: Colors.primary,
-	},
-	avatar: {
-		width: 40,
-		height: 40,
-		borderRadius: Radius.full,
-		backgroundColor: Colors.primary,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	avatarText: {
-		fontSize: FontSize.md,
-		fontWeight: "700",
-		color: Colors.textOnPrimary,
+	loadingText: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
 	},
 	titleSection: {
+		marginTop: Spacing.sm,
 		marginBottom: Spacing.lg,
 	},
 	pageTitle: {
@@ -299,30 +359,47 @@ const styles = StyleSheet.create({
 	pageSubtitle: {
 		fontSize: FontSize.md,
 		color: Colors.textSecondary,
+		lineHeight: 22,
 	},
 	card: {
 		backgroundColor: Colors.surface,
 		borderRadius: Radius.xl,
 		borderWidth: 1,
 		borderColor: Colors.border,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.06,
-		shadowRadius: 8,
 	},
 	summaryCard: {
 		padding: Spacing.lg,
 		marginBottom: Spacing.md,
 	},
-	eyebrow: {
-		fontSize: FontSize.xs,
-		fontWeight: "600",
-		color: Colors.primary,
-		letterSpacing: 1,
+	summaryHeading: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.md,
 		marginBottom: Spacing.md,
 	},
+	summaryHeadingIcon: {
+		width: 42,
+		height: 42,
+		borderRadius: Radius.md,
+		backgroundColor: Colors.secondary + "33",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	summaryHeadingInfo: {
+		flex: 1,
+	},
+	eyebrow: {
+		fontSize: FontSize.sm,
+		fontWeight: "600",
+		color: Colors.primary,
+	},
+	summaryDescription: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
+		marginTop: 3,
+	},
 	divider: {
-		height: 1,
+		height: StyleSheet.hairlineWidth,
 		backgroundColor: Colors.border,
 	},
 	metrics: {
@@ -335,31 +412,38 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	metricDivider: {
-		width: 1,
+		width: StyleSheet.hairlineWidth,
 		height: 88,
 		backgroundColor: Colors.border,
 	},
-	metricIcon: {
-		width: 36,
-		height: 36,
+	metricIconPrimary: {
+		width: 42,
+		height: 42,
 		borderRadius: Radius.md,
+		backgroundColor: Colors.secondary + "33",
 		alignItems: "center",
 		justifyContent: "center",
-		marginBottom: Spacing.xs,
+		marginBottom: Spacing.sm,
 	},
-	metricIconText: {
-		fontSize: FontSize.lg,
-		fontWeight: "700",
+	metricIconAccent: {
+		width: 42,
+		height: 42,
+		borderRadius: Radius.md,
+		backgroundColor: Colors.tertiary + "66",
+		alignItems: "center",
+		justifyContent: "center",
+		marginBottom: Spacing.sm,
 	},
 	metricCount: {
 		fontSize: FontSize.xxl,
 		fontWeight: "800",
 		color: Colors.text,
+		fontVariant: ["tabular-nums"],
 	},
 	metricLabel: {
 		fontSize: FontSize.sm,
 		color: Colors.textSecondary,
-		marginTop: 2,
+		marginTop: Spacing.xs,
 		textAlign: "center",
 	},
 	weeklyCard: {
@@ -384,8 +468,12 @@ const styles = StyleSheet.create({
 		fontSize: FontSize.sm,
 		color: Colors.textSecondary,
 		marginTop: Spacing.xs,
+		lineHeight: 20,
 	},
 	weekBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 5,
 		paddingHorizontal: Spacing.sm,
 		paddingVertical: Spacing.xs,
 		borderRadius: Radius.full,
@@ -400,49 +488,67 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-end",
-		height: 112,
+		height: 126,
 		marginTop: Spacing.lg,
+		marginBottom: Spacing.md,
 	},
 	barCol: {
 		flex: 1,
 		alignItems: "center",
+		justifyContent: "flex-end",
+		height: "100%",
 	},
 	barTrack: {
-		width: 24,
-		maxWidth: "80%",
-		height: 88,
+		width: 25,
+		maxWidth: "75%",
+		height: 82,
 		borderRadius: Radius.sm,
 		backgroundColor: Colors.border,
 		justifyContent: "flex-end",
 		overflow: "hidden",
 	},
+	barTrackActive: {
+		backgroundColor: Colors.secondary + "44",
+	},
 	barFill: {
 		width: "100%",
-		height: 38,
+		height: "100%",
 		backgroundColor: Colors.primary,
 		borderTopLeftRadius: Radius.sm,
 		borderTopRightRadius: Radius.sm,
 		justifyContent: "flex-start",
 	},
 	barHighlight: {
-		height: 6,
+		height: 5,
 		backgroundColor: Colors.secondary,
 	},
 	dayLabel: {
 		fontSize: FontSize.xs,
 		fontWeight: "500",
 		color: Colors.textSecondary,
-		marginTop: Spacing.xs,
+		marginTop: Spacing.sm,
 	},
 	dayLabelActive: {
 		fontWeight: "700",
 		color: Colors.primary,
 	},
+	dayIndicator: {
+		width: 5,
+		height: 5,
+		borderRadius: Radius.full,
+		backgroundColor: "transparent",
+		marginTop: 4,
+	},
+	dayIndicatorActive: {
+		backgroundColor: Colors.accent,
+	},
 	chartFooter: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
+		gap: Spacing.sm,
 		marginTop: Spacing.md,
+		marginBottom: Spacing.sm,
 	},
 	legend: {
 		flexDirection: "row",
@@ -464,7 +570,21 @@ const styles = StyleSheet.create({
 		fontWeight: "600",
 		color: Colors.text,
 	},
+	targetTrack: {
+		height: 6,
+		borderRadius: Radius.full,
+		backgroundColor: Colors.border,
+		overflow: "hidden",
+	},
+	targetFill: {
+		height: "100%",
+		borderRadius: Radius.full,
+		backgroundColor: Colors.accent,
+	},
 	sectionHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
 		marginBottom: Spacing.md,
 	},
 	sectionTitle: {
@@ -477,67 +597,19 @@ const styles = StyleSheet.create({
 		color: Colors.textSecondary,
 		marginTop: Spacing.xs,
 	},
-	moduleList: {
-		gap: Spacing.md,
-		marginBottom: Spacing.xl,
-	},
-	moduleCard: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.md,
-		padding: Spacing.md,
-	},
-	moduleIcon: {
-		width: 48,
-		height: 48,
-		borderRadius: Radius.md,
+	historyCount: {
+		minWidth: 30,
+		height: 30,
+		paddingHorizontal: Spacing.sm,
+		borderRadius: Radius.full,
+		backgroundColor: Colors.secondary + "33",
 		alignItems: "center",
 		justifyContent: "center",
-		flexShrink: 0,
 	},
-	moduleIconText: {
-		fontSize: FontSize.lg,
-		fontWeight: "700",
-		color: Colors.text,
-	},
-	moduleInfo: {
-		flex: 1,
-		minWidth: 0,
-	},
-	moduleTitleRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		gap: Spacing.sm,
-	},
-	moduleTitle: {
-		flex: 1,
-		fontSize: FontSize.md,
-		fontWeight: "700",
-		color: Colors.text,
-	},
-	moduleSessions: {
-		fontSize: FontSize.sm,
-		color: Colors.textSecondary,
-		marginTop: 2,
-		marginBottom: Spacing.sm,
-	},
-	moduleProgress: {
+	historyCountText: {
 		fontSize: FontSize.sm,
 		fontWeight: "700",
 		color: Colors.primary,
-	},
-	progressTrack: {
-		width: "100%",
-		height: 7,
-		borderRadius: Radius.full,
-		backgroundColor: Colors.border,
-		overflow: "hidden",
-	},
-	progressFill: {
-		height: "100%",
-		borderRadius: Radius.full,
-		backgroundColor: Colors.primary,
 	},
 	recentCard: {
 		paddingHorizontal: Spacing.md,
@@ -550,49 +622,97 @@ const styles = StyleSheet.create({
 		paddingVertical: Spacing.md,
 	},
 	recentIcon: {
-		width: 44,
-		height: 44,
-		borderRadius: Radius.md,
+		width: 46,
+		height: 46,
+		borderRadius: Radius.lg,
 		alignItems: "center",
 		justifyContent: "center",
 		flexShrink: 0,
 	},
-	recentIconText: {
+	speakingIcon: {
+		backgroundColor: Colors.secondary + "55",
+	},
+	hearingIcon: {
+		backgroundColor: Colors.tertiary + "66",
+	},
+	speakingIconText: {
 		fontSize: FontSize.md,
-		fontWeight: "700",
-		color: Colors.text,
+		fontWeight: "800",
+		color: Colors.primary,
 	},
 	recentInfo: {
 		flex: 1,
 		minWidth: 0,
 	},
+	recentTitleRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.xs,
+	},
 	recentTitle: {
+		flex: 1,
 		fontSize: FontSize.md,
 		fontWeight: "700",
 		color: Colors.text,
 	},
-	recentDetail: {
+	recentType: {
 		fontSize: FontSize.sm,
 		color: Colors.textSecondary,
-		marginTop: Spacing.xs,
+		marginTop: 3,
 		marginBottom: Spacing.sm,
+	},
+	recentBottom: {
+		flexDirection: "row",
+		alignItems: "center",
+		flexWrap: "wrap",
+		gap: Spacing.sm,
 	},
 	statusChip: {
 		alignSelf: "flex-start",
-		backgroundColor: Colors.secondary + "33",
+		backgroundColor: Colors.tertiary + "55",
 		borderRadius: Radius.full,
 		paddingHorizontal: Spacing.sm,
-		paddingVertical: Spacing.xs,
+		paddingVertical: 5,
+	},
+	statusChipCompleted: {
+		backgroundColor: Colors.secondary + "44",
 	},
 	statusChipText: {
 		fontSize: FontSize.xs,
 		fontWeight: "600",
+		color: Colors.text,
+	},
+	statusChipTextCompleted: {
 		color: Colors.primary,
+	},
+	scoreText: {
+		fontSize: FontSize.xs,
+		fontWeight: "600",
+		color: Colors.textSecondary,
+	},
+	emptyCard: {
+		alignItems: "center",
+		padding: Spacing.xl,
+	},
+	emptyIcon: {
+		width: 60,
+		height: 60,
+		borderRadius: Radius.xl,
+		backgroundColor: Colors.secondary + "33",
+		alignItems: "center",
+		justifyContent: "center",
+		marginBottom: Spacing.md,
+	},
+	emptyTitle: {
+		fontSize: FontSize.md,
+		fontWeight: "700",
+		color: Colors.text,
+		marginBottom: Spacing.xs,
 	},
 	emptyText: {
 		fontSize: FontSize.sm,
 		color: Colors.textSecondary,
 		textAlign: "center",
-		paddingVertical: Spacing.lg,
+		lineHeight: 21,
 	},
 });

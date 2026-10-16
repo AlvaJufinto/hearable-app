@@ -10,12 +10,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AuthHeader from "@/components/ui/AuthHeader";
 import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { useHomeData } from "@/hooks/useHomeData";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-const WEEK_DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+const WEEK_DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
 
 const modules = [
 	{
@@ -28,7 +29,7 @@ const modules = [
 			"Latih pelafalan kata dan kalimat dengan panduan visual ritmik.",
 		buttonBg: Colors.secondary + "33",
 		buttonColor: Colors.primary,
-		route: "/speaking",
+		route: "/speaking" as const,
 	},
 	{
 		iconText: "HS",
@@ -39,7 +40,7 @@ const modules = [
 		description: "Dengarkan dan identifikasi suara lingkungan di sekitarmu.",
 		buttonBg: Colors.tertiary + "33",
 		buttonColor: Colors.accent,
-		route: "/recognition",
+		route: "/recognition" as const,
 	},
 ];
 
@@ -114,7 +115,6 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 
 	const isSpeaking = last.type === "speaking";
 	const isCompleted = last.status === "completed";
-
 	const done = last.progress?.done ?? 0;
 	const total = last.progress?.total ?? 0;
 
@@ -129,8 +129,6 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 	const moduleBackground = isSpeaking
 		? Colors.secondary + "33"
 		: Colors.tertiary + "33";
-
-	const statusLabel = isCompleted ? "Selesai" : "Berlangsung";
 
 	return (
 		<View style={styles.lastExerciseCard}>
@@ -153,7 +151,6 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 					<Text style={styles.lastExerciseCategory}>
 						{isSpeaking ? "Latihan Bicara" : "Kenali Suara"}
 					</Text>
-
 					<Text style={styles.lastExerciseTitle}>{last.module_title}</Text>
 
 					{last.difficulty_label ? (
@@ -169,7 +166,6 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 					<Text style={styles.lastExerciseProgressLabel}>
 						{isCompleted ? "Latihan selesai" : "Progress latihan"}
 					</Text>
-
 					<Text style={styles.lastExerciseProgressValue}>
 						{total > 0
 							? `${Math.min(done, total)} dari ${total} soal`
@@ -185,11 +181,7 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 			<View
 				style={styles.lastExerciseProgressTrack}
 				accessibilityRole="progressbar"
-				accessibilityValue={{
-					min: 0,
-					max: 100,
-					now: percentage,
-				}}
+				accessibilityValue={{ min: 0, max: 100, now: percentage }}
 			>
 				<View style={[styles.progressFill, { width: `${percentage}%` }]} />
 			</View>
@@ -199,7 +191,6 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 					<View style={styles.resultIcon}>
 						<Text style={styles.resultIconText}>✓</Text>
 					</View>
-
 					<View style={styles.resultInfo}>
 						<Text style={styles.lastExerciseResultLabel}>Jawaban benar</Text>
 						<Text style={styles.lastExerciseResultValue}>
@@ -231,7 +222,6 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 				>
 					{isCompleted ? "Ulangi latihan" : "Lanjutkan latihan"}
 				</Text>
-
 				<Text
 					style={[
 						styles.lastExerciseButtonIcon,
@@ -246,7 +236,8 @@ function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 		</View>
 	);
 }
-function ModuleCard({ module }: { module: (typeof modules)[number] }) {
+
+function HomeModuleCard({ module }: { module: (typeof modules)[number] }) {
 	const isSpeaking = module.title === "Latihan Bicara";
 
 	return (
@@ -255,7 +246,7 @@ function ModuleCard({ module }: { module: (typeof modules)[number] }) {
 				<View style={[styles.iconTile, { backgroundColor: module.iconBg }]}>
 					{isSpeaking ? (
 						<Text style={[styles.iconTileText, { color: module.iconColor }]}>
-							Aa
+							{module.iconText}
 						</Text>
 					) : (
 						<MaterialCommunityIcons
@@ -277,14 +268,13 @@ function ModuleCard({ module }: { module: (typeof modules)[number] }) {
 			<TouchableOpacity
 				style={[styles.moduleButton, { backgroundColor: module.buttonBg }]}
 				activeOpacity={0.8}
-				onPress={() => router.push(module.route as any)}
+				onPress={() => router.push(module.route)}
 				accessibilityRole="button"
 				accessibilityLabel={`Mulai ${module.title}`}
 			>
 				<Text style={[styles.moduleButtonText, { color: module.buttonColor }]}>
 					Mulai latihan
 				</Text>
-
 				<Text style={[styles.moduleButtonIcon, { color: module.buttonColor }]}>
 					→
 				</Text>
@@ -292,11 +282,11 @@ function ModuleCard({ module }: { module: (typeof modules)[number] }) {
 		</View>
 	);
 }
+
 export default function BerandaScreen() {
 	const { state } = useHomeData();
 
 	const userName = state.status === "authenticated" ? state.userName : "User";
-
 	const greeting = userName ? `Halo, ${userName}!` : "Halo!";
 
 	if (state.status === "idle" || state.status === "loading") {
@@ -316,15 +306,7 @@ export default function BerandaScreen() {
 				contentContainerStyle={styles.content}
 				showsVerticalScrollIndicator={false}
 			>
-				<View style={styles.header}>
-					<Text style={styles.brandText}>HearAble</Text>
-
-					<View style={styles.avatar}>
-						<Text style={styles.avatarText}>
-							{userName.charAt(0).toUpperCase()}
-						</Text>
-					</View>
-				</View>
+				<AuthHeader />
 
 				<View style={styles.titleSection}>
 					<Text style={styles.pageTitle}>{greeting}</Text>
@@ -342,7 +324,6 @@ export default function BerandaScreen() {
 									Target {state.activity.target_days} hari
 								</Text>
 							</View>
-
 							<WeeklyActivityCard activity={state.activity} />
 						</View>
 
@@ -352,7 +333,6 @@ export default function BerandaScreen() {
 									<Text style={styles.sectionTitle}>Lanjutkan Latihan</Text>
 									<Text style={styles.sectionMeta}>Terakhir</Text>
 								</View>
-
 								<LastExerciseCard
 									history={state.history as unknown as ExerciseHistoryItem[]}
 								/>
@@ -364,11 +344,11 @@ export default function BerandaScreen() {
 				<View style={styles.section}>
 					<View style={styles.sectionHeader}>
 						<Text style={styles.sectionTitle}>Semua Modul</Text>
-						<Text style={styles.sectionMeta}>2 modul</Text>
+						<Text style={styles.sectionMeta}>{modules.length} modul</Text>
 					</View>
 
 					{modules.map((module) => (
-						<ModuleCard key={module.title} module={module} />
+						<HomeModuleCard key={module.title} module={module} />
 					))}
 				</View>
 			</ScrollView>
@@ -392,31 +372,6 @@ const styles = StyleSheet.create({
 	content: {
 		paddingHorizontal: Spacing.lg,
 		paddingBottom: Spacing.xxl,
-	},
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingTop: Spacing.lg,
-		paddingBottom: Spacing.md,
-	},
-	brandText: {
-		fontSize: FontSize.xl,
-		fontWeight: "800",
-		color: Colors.primary,
-	},
-	avatar: {
-		width: 40,
-		height: 40,
-		borderRadius: Radius.full,
-		backgroundColor: Colors.primary,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	avatarText: {
-		fontSize: FontSize.md,
-		fontWeight: "700",
-		color: Colors.textOnPrimary,
 	},
 	titleSection: {
 		marginBottom: Spacing.lg,
@@ -565,30 +520,6 @@ const styles = StyleSheet.create({
 	lastExerciseMeta: {
 		fontSize: FontSize.sm,
 		color: Colors.textSecondary,
-	},
-	statusBadge: {
-		flexDirection: "row",
-		alignItems: "center",
-		alignSelf: "flex-start",
-		gap: 5,
-		paddingHorizontal: Spacing.sm,
-		paddingVertical: 6,
-		borderRadius: Radius.full,
-	},
-	completedBadge: {
-		backgroundColor: Colors.secondary + "33",
-	},
-	inProgressBadge: {
-		backgroundColor: Colors.tertiary + "33",
-	},
-	statusDot: {
-		width: 6,
-		height: 6,
-		borderRadius: Radius.full,
-	},
-	statusText: {
-		fontSize: FontSize.xs,
-		fontWeight: "600",
 	},
 	lastExerciseDivider: {
 		height: StyleSheet.hairlineWidth,

@@ -1,6 +1,7 @@
 /** @format */
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
+
 import { listeningService } from "@/services/listening.service";
 import type { ListeningModule, ListeningQuestion } from "@/types/api";
 
@@ -40,7 +41,8 @@ export function useListeningSession() {
 			const modules = await listeningService.getModules();
 			setPhase({ status: "module_list", modules });
 		} catch (err: unknown) {
-			const message = (err as { message?: string })?.message ?? "Gagal memuat modul";
+			const message =
+				(err as { message?: string })?.message ?? "Gagal memuat modul";
 			setPhase({ status: "modules_error", message });
 		}
 	}, []);
@@ -48,7 +50,8 @@ export function useListeningSession() {
 	const startSession = useCallback(async (moduleId: string) => {
 		setPhase({ status: "starting_session" });
 		try {
-			const { session, questions, progress } = await listeningService.startSession(moduleId);
+			const { session, questions, progress } =
+				await listeningService.startSession(moduleId);
 			setPhase({
 				status: "active",
 				sessionId: session.id,
@@ -58,7 +61,8 @@ export function useListeningSession() {
 				answers: new Map(),
 			});
 		} catch (err: unknown) {
-			const message = (err as { message?: string })?.message ?? "Gagal memulai sesi";
+			const message =
+				(err as { message?: string })?.message ?? "Gagal memulai sesi";
 			setPhase({ status: "modules_error", message });
 		}
 	}, []);
@@ -70,9 +74,13 @@ export function useListeningSession() {
 
 			setPhase({ status: "submitting_answer" });
 			try {
-				const result = await listeningService.submitAnswer(current.sessionId, questionId, {
-					answerId,
-				});
+				const result = await listeningService.submitAnswer(
+					current.sessionId,
+					questionId,
+					{
+						answerId,
+					},
+				);
 				const newAnswers = new Map(current.answers);
 				newAnswers.set(questionId, {
 					answerId: result.selected_option_id,
@@ -83,7 +91,9 @@ export function useListeningSession() {
 				const nextIndex = current.currentIndex + 1;
 				if (nextIndex >= current.questions.length) {
 					setPhase({ status: "completing" });
-					const summary = await listeningService.completeSession(current.sessionId);
+					const summary = await listeningService.completeSession(
+						current.sessionId,
+					);
 					setPhase({
 						status: "done",
 						sessionId: current.sessionId,
@@ -98,11 +108,12 @@ export function useListeningSession() {
 					});
 				}
 			} catch (err: unknown) {
-				const message = (err as { message?: string })?.message ?? "Gagal mengirim jawaban";
+				const message =
+					(err as { message?: string })?.message ?? "Gagal mengirim jawaban";
 				setPhase({ status: "answer_error", message });
 			}
 		},
-		[phase]
+		[phase],
 	);
 
 	const skipQuestion = useCallback(
@@ -112,7 +123,11 @@ export function useListeningSession() {
 
 			setPhase({ status: "submitting_answer" });
 			try {
-				const result = await listeningService.submitAnswer(current.sessionId, questionId, { skipped: true });
+				const result = await listeningService.submitAnswer(
+					current.sessionId,
+					questionId,
+					{ skipped: true },
+				);
 				const newAnswers = new Map(current.answers);
 				newAnswers.set(questionId, {
 					answerId: result.selected_option_id,
@@ -123,7 +138,9 @@ export function useListeningSession() {
 				const nextIndex = current.currentIndex + 1;
 				if (nextIndex >= current.questions.length) {
 					setPhase({ status: "completing" });
-					const summary = await listeningService.completeSession(current.sessionId);
+					const summary = await listeningService.completeSession(
+						current.sessionId,
+					);
 					setPhase({
 						status: "done",
 						sessionId: current.sessionId,
@@ -138,16 +155,24 @@ export function useListeningSession() {
 					});
 				}
 			} catch (err: unknown) {
-				const message = (err as { message?: string })?.message ?? "Gagal melanjutkan";
+				const message =
+					(err as { message?: string })?.message ?? "Gagal melanjutkan";
 				setPhase({ status: "answer_error", message });
 			}
 		},
-		[phase]
+		[phase],
 	);
 
 	const reset = useCallback(() => {
 		setPhase({ status: "idle" });
 	}, []);
 
-	return { phase, loadModules, startSession, submitAnswer, skipQuestion, reset };
+	return {
+		phase,
+		loadModules,
+		startSession,
+		submitAnswer,
+		skipQuestion,
+		reset,
+	};
 }

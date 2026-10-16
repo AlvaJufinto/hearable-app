@@ -194,6 +194,7 @@ export interface HistoryItem {
 	};
 	correct?: number;
 	average_score?: number;
+	module_title: string;
 }
 
 export interface HistoryResponse {

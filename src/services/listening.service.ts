@@ -22,18 +22,31 @@ export const listeningService = {
 		return response.modules ?? [];
 	},
 
-	async startSession(
-		moduleId: string,
-	): Promise<{
+	async startSession(moduleId: string): Promise<{
 		session: ListeningSession;
 		questions: ListeningQuestion[];
 		progress: { done: number; total: number };
 	}> {
-		return apiClient.post<{
+		const response = await apiClient.post<{
 			session: ListeningSession;
 			questions: ListeningQuestion[];
 			progress: { done: number; total: number };
 		}>("/v1/listening/sessions", { module_id: moduleId }, true);
+
+		console.log(
+			"[Listening API] Questions:",
+			JSON.stringify(
+				response.questions.map((question, index) => ({
+					index,
+					id: question.id,
+					options: question.options,
+				})),
+				null,
+				2,
+			),
+		);
+
+		return response;
 	},
 
 	async getSession(sessionId: string): Promise<ListeningSession> {

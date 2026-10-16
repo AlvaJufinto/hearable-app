@@ -1,14 +1,15 @@
 /** @format */
 
 import { useEffect } from "react";
+
 import { router } from "expo-router";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 
 import Text from "@/components/ui/Text";
 import { FontSize, Radius, Spacing } from "@/constant/theme";
 import { useExerciseProgress } from "@/hooks/useExerciseProgress";
+import { Ionicons } from "@expo/vector-icons";
 
 const COLORS = {
 	surface: "#EBF8FA",
@@ -23,7 +24,11 @@ function Header() {
 		<View style={styles.header}>
 			<View style={styles.headerTopRow}>
 				<View style={styles.headerLeft}>
-					<TouchableOpacity style={styles.backButton} activeOpacity={0.8} onPress={() => router.back()}>
+					<TouchableOpacity
+						style={styles.backButton}
+						activeOpacity={0.8}
+						onPress={() => router.back()}
+					>
 						<Ionicons name="chevron-back" size={20} color={COLORS.darkText} />
 					</TouchableOpacity>
 					<Text style={styles.headerTitle}>Sesi Latihan</Text>
@@ -90,7 +95,11 @@ function ActionButtons({ onRetry }: { onRetry: () => void }) {
 				<Text style={styles.primaryButtonText}>Lanjut ke Beranda</Text>
 				<Ionicons name="arrow-forward" size={13} color={COLORS.white} />
 			</TouchableOpacity>
-			<TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8} onPress={onRetry}>
+			<TouchableOpacity
+				style={styles.secondaryButton}
+				activeOpacity={0.8}
+				onPress={onRetry}
+			>
 				<Ionicons name="refresh" size={13} color={COLORS.primary} />
 				<Text style={styles.secondaryButtonText}>Coba Latihan Lagi</Text>
 			</TouchableOpacity>
@@ -130,11 +139,11 @@ export default function CompletionScreen() {
 						<Text style={styles.badgeText}>Hasil Latihan</Text>
 					</View>
 					<CompletionSection
-					recognitionScore={recognitionScore}
-					recognitionTotal={recognitionTotal}
-					speakingScore={speakingScore}
-					speakingTotal={speakingTotal}
-				/>
+						recognitionScore={recognitionScore}
+						recognitionTotal={recognitionTotal}
+						speakingScore={speakingScore}
+						speakingTotal={speakingTotal}
+					/>
 				</View>
 				<ActionButtons onRetry={handleRetry} />
 			</ScrollView>

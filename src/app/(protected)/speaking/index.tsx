@@ -358,7 +358,6 @@ export default function SpeakingScreen() {
 						key={module.id}
 						title={module.title ?? module.label}
 						description={module.description}
-						icon="mic-outline"
 						meta={[
 							{
 								icon: "document-text-outline",
