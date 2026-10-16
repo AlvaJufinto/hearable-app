@@ -1,3 +1,5 @@
+<!-- @format -->
+
 # HearAble
 
 An Android application for independent speech practice and auditory recognition, designed for deaf and hard-of-hearing learners.
@@ -11,6 +13,7 @@ HearAble is not a clinical diagnostic tool and does not replace professional spe
 ## Key Features
 
 **Speaking Practice**
+
 - Select from available speaking modules
 - Read a target sentence displayed on screen
 - Speak into the device microphone; speech is transcribed using on-device speech recognition
@@ -18,63 +21,41 @@ HearAble is not a clinical diagnostic tool and does not replace professional spe
 - Complete a session and view a summary
 
 **Listening / Auditory Recognition**
+
 - Select from available listening modules
 - Play audio and select from multiple-choice options or enter a text answer
 - Navigate between questions and submit answers
 - Complete a session and view a summary
 
 **Progress Tracking**
+
 - Weekly activity overview (sessions completed, active days, streak)
 - Practice history with in-progress and completed sessions
 - Resume or retry previous sessions
 
 **Authentication**
+
 - Register and log in with email and password
 - JWT-based sessions with access token (15 minutes) and refresh token (30 days, single-use rotation)
 - Automatic token refresh on 401 responses
 - Secure credential storage using device keychain
 
 **Onboarding**
+
 - Three-step introduction to the application's learning approach
 
 ## Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React Native 0.86.3, Expo SDK 57 |
-| Routing | Expo Router (file-based) |
-| Language | TypeScript ~6.0 |
-| Audio Recording | expo-audio |
+| Layer              | Technology                                 |
+| ------------------ | ------------------------------------------ |
+| Framework          | React Native 0.86.3, Expo SDK 57           |
+| Routing            | Expo Router (file-based)                   |
+| Language           | TypeScript ~6.0                            |
+| Audio Recording    | expo-audio                                 |
 | Speech Recognition | expo-speech-recognition (Google on-device) |
-| Audio Playback | expo-audio |
-| Secure Storage | expo-secure-store |
-| Android Build | Expo EAS Build |
-
-## Architecture
-
-```
-User Interaction
-       |
-       v
-Screen / Feature Component
-       |
-       v
-Feature Hook (useSpeakingSession, useListeningSession, useHomeData, ...)
-       |
-       v
-Service Layer (auth.service, speaking.service, listening.service, progress.service)
-       |
-       v
-API Client (api/client.ts) -- handles auth headers, token refresh, error parsing
-       |
-       v
-Backend API (https://api.hearable.nighttealabs.tech)
-
-Local State:
-  - AuthContext: user session, login/logout/register
-  - useExerciseProgress: module-level global store (in-memory, not persisted)
-  - useSyncExternalStore for cross-component state notifications
-```
+| Audio Playback     | expo-audio                                 |
+| Secure Storage     | expo-secure-store                          |
+| Android Build      | Expo EAS Build                             |
 
 ### Listening Session Flow
 
@@ -214,42 +195,42 @@ eas build --profile production --platform android --local
 
 ### Authentication
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/v1/auth/register` | POST | Create account |
-| `/v1/auth/login` | POST | Log in |
-| `/v1/auth/refresh` | POST | Refresh access token |
-| `/v1/auth/logout` | POST | Revoke refresh token |
-| `/v1/me` | GET | Get current user profile |
+| Endpoint            | Method | Description              |
+| ------------------- | ------ | ------------------------ |
+| `/v1/auth/register` | POST   | Create account           |
+| `/v1/auth/login`    | POST   | Log in                   |
+| `/v1/auth/refresh`  | POST   | Refresh access token     |
+| `/v1/auth/logout`   | POST   | Revoke refresh token     |
+| `/v1/me`            | GET    | Get current user profile |
 
 Tokens are stored via `expo-secure-store`. The API client intercepts 401 responses, refreshes the access token, and retries the original request. Concurrent refresh requests are deduplicated via a shared promise.
 
 ### Listening Modules
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/v1/listening/modules` | GET | List modules (optional `?difficulty=1-4`) |
-| `/v1/listening/sessions` | POST | Start a session |
-| `/v1/listening/sessions/{id}` | GET | Get session detail |
-| `/v1/listening/sessions/{id}/answers` | POST | Submit an answer |
-| `/v1/listening/sessions/{id}/complete` | POST | Complete session, get summary |
+| Endpoint                               | Method | Description                               |
+| -------------------------------------- | ------ | ----------------------------------------- |
+| `/v1/listening/modules`                | GET    | List modules (optional `?difficulty=1-4`) |
+| `/v1/listening/sessions`               | POST   | Start a session                           |
+| `/v1/listening/sessions/{id}`          | GET    | Get session detail                        |
+| `/v1/listening/sessions/{id}/answers`  | POST   | Submit an answer                          |
+| `/v1/listening/sessions/{id}/complete` | POST   | Complete session, get summary             |
 
 ### Speaking Modules
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/v1/speaking/modules` | GET | List modules |
-| `/v1/speaking/sessions` | POST | Start a session |
-| `/v1/speaking/sessions/{id}` | GET | Get session detail |
-| `/v1/speaking/sessions/{id}/attempts` | POST | Submit transcript (FormData) |
-| `/v1/speaking/sessions/{id}/complete` | POST | Complete session, get summary |
+| Endpoint                              | Method | Description                   |
+| ------------------------------------- | ------ | ----------------------------- |
+| `/v1/speaking/modules`                | GET    | List modules                  |
+| `/v1/speaking/sessions`               | POST   | Start a session               |
+| `/v1/speaking/sessions/{id}`          | GET    | Get session detail            |
+| `/v1/speaking/sessions/{id}/attempts` | POST   | Submit transcript (FormData)  |
+| `/v1/speaking/sessions/{id}/complete` | POST   | Complete session, get summary |
 
 ### Progress
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/v1/me/activity` | GET | Weekly activity (optional `?week_of=YYYY-MM-DD`) |
-| `/v1/me/history` | GET | Practice history (supports `limit`, `cursor`, `status`) |
+| Endpoint          | Method | Description                                             |
+| ----------------- | ------ | ------------------------------------------------------- |
+| `/v1/me/activity` | GET    | Weekly activity (optional `?week_of=YYYY-MM-DD`)        |
+| `/v1/me/history`  | GET    | Practice history (supports `limit`, `cursor`, `status`) |
 
 ## Privacy and Security
 
