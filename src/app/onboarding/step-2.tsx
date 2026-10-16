@@ -2,9 +2,9 @@
 
 import { router } from "expo-router";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
-import Text from "@/components/ui/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -40,7 +40,7 @@ export default function Step2Screen() {
 						</View>
 					</View>
 
-					<TouchableOpacity onPress={() => router.replace("/(tabs)")}>
+					<TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
 						<Text style={styles.skipText}>Lewati</Text>
 					</TouchableOpacity>
 				</View>

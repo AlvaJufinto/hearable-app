@@ -6,16 +6,18 @@ import type {
 	SpeakingSession,
 	SpeakingSummary,
 	SpeakingAttempt,
+	Sentence,
 } from "@/types/api";
 
 export const speakingService = {
 	async getModules(difficulty?: number): Promise<SpeakingModule[]> {
 		const path = difficulty ? `/v1/speaking/modules?difficulty=${difficulty}` : "/v1/speaking/modules";
-		return apiClient.get<SpeakingModule[]>(path, true);
+		const response = await apiClient.get<{ modules: SpeakingModule[] }>(path, true);
+		return response.modules ?? [];
 	},
 
-	async startSession(moduleId: string): Promise<{ session: SpeakingSession }> {
-		return apiClient.post<{ session: SpeakingSession }>(
+	async startSession(moduleId: string): Promise<{ session: SpeakingSession; sentences: Sentence[]; progress: { done: number; total: number } }> {
+		return apiClient.post<{ session: SpeakingSession; sentences: Sentence[]; progress: { done: number; total: number } }>(
 			"/v1/speaking/sessions",
 			{ module_id: moduleId },
 			true

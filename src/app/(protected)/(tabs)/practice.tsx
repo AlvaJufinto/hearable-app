@@ -138,8 +138,8 @@ export default function PracticeScreen() {
 				{speakingModules.map((m) => (
 					<ModuleCard
 						key={m.id}
-						title={m.name}
-						meta={`${m.sentence_count} kalimat · ${DIFFICULTY_LABELS[m.difficulty] ?? "Pemula"}`}
+						title={m.label}
+						meta={`${m.sentence_count} kalimat · ${m.difficulty_label}`}
 						description={m.description}
 						iconText="Aa"
 						iconBg={Colors.secondary + "33"}
@@ -153,8 +153,8 @@ export default function PracticeScreen() {
 				{listeningModules.map((m) => (
 					<ModuleCard
 						key={m.id}
-						title={m.name}
-						meta={`${m.question_count} audio · ${DIFFICULTY_LABELS[m.difficulty] ?? "Pemula"}`}
+						title={m.label}
+						meta={`${m.question_count} audio · ${m.difficulty_label}`}
 						description={m.description}
 						iconText="HS"
 						iconBg={Colors.tertiary + "33"}

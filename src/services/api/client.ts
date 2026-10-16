@@ -1,6 +1,7 @@
 /** @format */
 
 import { storage } from "./storage";
+import { authErrorEmitter } from "../authErrorEmitter";
 import type { ApiErrorResponse } from "@/types/api";
 
 const BASE_URL = "https://api.hearable.nighttealabs.tech";
@@ -12,39 +13,43 @@ async function getAccessToken(): Promise<string | null> {
 	return storage.getAccessToken();
 }
 
-async function doRefresh(): Promise<string | null> {
+async function doRefresh(): Promise<string> {
+	const refreshToken = await storage.getRefreshToken();
+	if (!refreshToken) {
+		await storage.clearTokens();
+		throw { code: "REFRESH_TOKEN_MISSING", message: "No refresh token available" };
+	}
+
+	const res = await fetch(`${BASE_URL}/v1/auth/refresh`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ refreshToken }),
+	});
+
+	if (!res.ok) {
+		await storage.clearTokens();
+		throw { code: "REFRESH_FAILED", message: "Token refresh failed" };
+	}
+
+	let data: { access_token: string; refresh_token?: string };
 	try {
-		const refreshToken = await storage.getRefreshToken();
-		if (!refreshToken) return null;
-
-		const res = await fetch(`${BASE_URL}/v1/auth/refresh`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ refreshToken }),
-		});
-
-		if (!res.ok) {
-			await storage.clearTokens();
-			return null;
-		}
-
-		const data = await res.json();
-		await storage.setTokens(data.access_token, data.refresh_token);
-		return data.accessToken;
+		data = await res.json();
 	} catch {
 		await storage.clearTokens();
-		return null;
+		throw { code: "REFRESH_FAILED", message: "Token refresh failed" };
 	}
+	await storage.setTokens(data.access_token, data.refresh_token ?? refreshToken);
+	return data.access_token;
 }
 
-async function ensureValidToken(): Promise<string | null> {
+async function ensureValidToken(): Promise<string> {
 	const token = await getAccessToken();
 	if (token) return token;
 
 	if (isRefreshing) {
 		return new Promise((resolve) => {
 			refreshQueue.push(() => {
-				getAccessToken().then(resolve);
+				ensureValidToken().then(resolve);
 			});
 		});
 	}
@@ -88,20 +93,36 @@ export async function apiRequest<T>({
 
 	if (requireAuth) {
 		const token = await ensureValidToken();
-		if (!token) {
-			throw { code: "UNAUTHORIZED", message: "Not authenticated" };
-		}
 		headers["Authorization"] = `Bearer ${token}`;
 	}
 
 	const res = await fetch(url, { ...init, headers });
 
 	if (res.status === 401 && requireAuth) {
-		const newToken = await doRefresh();
-		if (newToken) {
+		try {
+			const newToken = await doRefresh();
 			headers["Authorization"] = `Bearer ${newToken}`;
 			const retry = await fetch(url, { ...init, headers });
 			if (retry.ok) return retry.json();
+			if (retry.status === 401) {
+				throw { code: "UNAUTHORIZED", message: "Session expired after token refresh" };
+			}
+			const err = await parseError(retry);
+			throw err;
+		} catch (refreshError) {
+			if (
+				refreshError &&
+				typeof refreshError === "object" &&
+				((refreshError as { code?: string }).code === "REFRESH_FAILED" ||
+					(refreshError as { code?: string }).code === "REFRESH_TOKEN_MISSING")
+			) {
+				authErrorEmitter.emit({
+					code: "UNAUTHORIZED",
+					message: "Session expired, please log in again",
+				});
+				throw { code: "UNAUTHORIZED", message: "Session expired, please log in again" };
+			}
+			throw refreshError;
 		}
 	}
 
@@ -111,7 +132,11 @@ export async function apiRequest<T>({
 	}
 
 	if (res.status === 204) return undefined as T;
-	return res.json() as Promise<T>;
+	try {
+		return await res.json() as Promise<T>;
+	} catch {
+		throw { code: "PARSE_ERROR", message: "Invalid JSON response from server" };
+	}
 }
 
 export async function apiRequestFormData<T>(
@@ -124,20 +149,36 @@ export async function apiRequestFormData<T>(
 	const headers: Record<string, string> = {};
 	if (requireAuth) {
 		const token = await ensureValidToken();
-		if (!token) {
-			throw { code: "UNAUTHORIZED", message: "Not authenticated" };
-		}
 		headers["Authorization"] = `Bearer ${token}`;
 	}
 
 	const res = await fetch(url, { method: "POST", headers, body });
 
 	if (res.status === 401 && requireAuth) {
-		const newToken = await doRefresh();
-		if (newToken) {
+		try {
+			const newToken = await doRefresh();
 			headers["Authorization"] = `Bearer ${newToken}`;
 			const retry = await fetch(url, { method: "POST", headers, body });
 			if (retry.ok) return retry.json() as Promise<T>;
+			if (retry.status === 401) {
+				throw { code: "UNAUTHORIZED", message: "Session expired after token refresh" };
+			}
+			const err = await parseError(retry);
+			throw err;
+		} catch (refreshError) {
+			if (
+				refreshError &&
+				typeof refreshError === "object" &&
+				((refreshError as { code?: string }).code === "REFRESH_FAILED" ||
+					(refreshError as { code?: string }).code === "REFRESH_TOKEN_MISSING")
+			) {
+				authErrorEmitter.emit({
+					code: "UNAUTHORIZED",
+					message: "Session expired, please log in again",
+				});
+				throw { code: "UNAUTHORIZED", message: "Session expired, please log in again" };
+			}
+			throw refreshError;
 		}
 	}
 
@@ -146,7 +187,23 @@ export async function apiRequestFormData<T>(
 		throw err;
 	}
 
-	return res.json() as Promise<T>;
+	try {
+		return await res.json() as Promise<T>;
+	} catch {
+		throw { code: "PARSE_ERROR", message: "Invalid JSON response from server" };
+	}
+}
+
+export async function refreshAccessToken(): Promise<boolean> {
+	const refreshToken = await storage.getRefreshToken();
+	if (!refreshToken) return false;
+
+	try {
+		await doRefresh();
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export const apiClient = {

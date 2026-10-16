@@ -4,7 +4,9 @@ import React, { createContext, useCallback, useEffect, useState } from "react";
 
 import { useRouter } from "expo-router";
 
+import { refreshAccessToken } from "@/services/api/client";
 import { authService } from "@/services/auth.service";
+import { authErrorEmitter } from "@/services/authErrorEmitter";
 import type { User } from "@/types/api";
 
 type AuthState = {
@@ -15,7 +17,12 @@ type AuthState = {
 
 type AuthContextValue = AuthState & {
 	login: (email: string, password: string) => Promise<void>;
-	register: (email: string, password: string, name: string, agreedToTerms: boolean) => Promise<void>;
+	register: (
+		email: string,
+		password: string,
+		name: string,
+		agreedToTerms: boolean,
+	) => Promise<void>;
 	logout: () => Promise<void>;
 };
 
@@ -33,17 +40,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		(async () => {
 			const isAuth = await authService.isAuthenticated();
 			if (isAuth) {
-				try {
-					const user = await authService.getMe();
-					setState({ isAuthenticated: true, isLoading: false, user });
-				} catch {
-					setState({ isAuthenticated: false, isLoading: false, user: null });
+				const refreshed = await refreshAccessToken();
+				if (refreshed) {
+					try {
+						const user = await authService.getMe();
+						setState({ isAuthenticated: true, isLoading: false, user });
+						return;
+					} catch {
+						// getMe failed even after refresh - will fall through to logout
+					}
 				}
+				setState({ isAuthenticated: false, isLoading: false, user: null });
 			} else {
 				setState({ isAuthenticated: false, isLoading: false, user: null });
 			}
 		})();
 	}, []);
+
+	useEffect(() => {
+		const unsubscribe = authErrorEmitter.subscribe((error) => {
+			if (error.code === "UNAUTHORIZED") {
+				setState({ isAuthenticated: false, isLoading: false, user: null });
+				router.replace("/onboarding/welcome");
+			}
+		});
+		return unsubscribe;
+	}, [router]);
 
 	const login = useCallback(
 		async (email: string, password: string) => {
@@ -55,8 +77,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	);
 
 	const register = useCallback(
-		async (email: string, password: string, name: string, agreedToTerms: boolean) => {
-			const res = await authService.register(email, password, name, agreedToTerms);
+		async (
+			email: string,
+			password: string,
+			name: string,
+			agreedToTerms: boolean,
+		) => {
+			const res = await authService.register(
+				email,
+				password,
+				name,
+				agreedToTerms,
+			);
 			setState({ isAuthenticated: true, isLoading: false, user: res.user });
 			router.replace("/(tabs)");
 		},
@@ -66,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const logout = useCallback(async () => {
 		await authService.logout();
 		setState({ isAuthenticated: false, isLoading: false, user: null });
-		router.replace("/onboarding/step-1");
+		router.replace("/onboarding/welcome");
 	}, [router]);
 
 	return (

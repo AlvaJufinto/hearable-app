@@ -72,7 +72,7 @@ export default function WelcomeScreen() {
 				<TouchableOpacity
 					style={styles.primaryButton}
 					activeOpacity={0.8}
-					onPress={() => router.push("/register")}
+					onPress={() => router.push("/onboarding/step-1")}
 				>
 					<Text style={styles.primaryButtonText}>Mulai sekarang</Text>
 					<Feather name="arrow-right" size={20} color={Colors.textOnPrimary} />

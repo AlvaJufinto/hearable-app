@@ -157,7 +157,6 @@ export default function RegisterScreen() {
 		try {
 			await auth.register(trimmedEmail, password, trimmedName, agreed);
 		} catch (error: unknown) {
-			console.log("🚀 ~ handleRegister ~ error:", error);
 			const message = error instanceof Error ? error.message : "";
 
 			setAuthError(message || "Registrasi gagal. Coba lagi.");

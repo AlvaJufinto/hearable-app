@@ -48,13 +48,13 @@ export function useListeningSession() {
 	const startSession = useCallback(async (moduleId: string) => {
 		setPhase({ status: "starting_session" });
 		try {
-			const { session } = await listeningService.startSession(moduleId);
+			const { session, questions, progress } = await listeningService.startSession(moduleId);
 			setPhase({
 				status: "active",
 				sessionId: session.id,
 				currentIndex: 0,
-				total: session.questions.length,
-				questions: session.questions,
+				total: progress.total,
+				questions: questions,
 				answers: new Map(),
 			});
 		} catch (err: unknown) {
@@ -74,7 +74,11 @@ export function useListeningSession() {
 					answerId,
 				});
 				const newAnswers = new Map(current.answers);
-				newAnswers.set(questionId, result);
+				newAnswers.set(questionId, {
+					answerId: result.selected_option_id,
+					correct: result.correct,
+					score: result.score ?? 0,
+				});
 
 				const nextIndex = current.currentIndex + 1;
 				if (nextIndex >= current.questions.length) {
@@ -110,7 +114,11 @@ export function useListeningSession() {
 			try {
 				const result = await listeningService.submitAnswer(current.sessionId, questionId, { skipped: true });
 				const newAnswers = new Map(current.answers);
-				newAnswers.set(questionId, result);
+				newAnswers.set(questionId, {
+					answerId: result.selected_option_id,
+					correct: result.correct,
+					score: result.score ?? 0,
+				});
 
 				const nextIndex = current.currentIndex + 1;
 				if (nextIndex >= current.questions.length) {

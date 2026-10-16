@@ -5,17 +5,18 @@ import { authService } from "@/services/auth.service";
 import { progressService } from "@/services/progress.service";
 import { listeningService } from "@/services/listening.service";
 import { speakingService } from "@/services/speaking.service";
+import type { ListeningModule, SpeakingModule } from "@/types/api";
 
 type PracticeState =
 	| { status: "idle" }
 	| { status: "loading" }
-			| {
-					status: "authenticated";
-					weeklyCompleted: number;
-					weeklyGoal: number;
-					listeningModules: { id: string; name: string; description: string; difficulty: number; question_count: number }[];
-					speakingModules: { id: string; name: string; description: string; difficulty: number; sentence_count: number }[];
-			  }
+		| {
+				status: "authenticated";
+				weeklyCompleted: number;
+				weeklyGoal: number;
+				listeningModules: ListeningModule[];
+				speakingModules: SpeakingModule[];
+		  }
 	| { status: "unauthenticated" };
 
 export function usePracticeData() {

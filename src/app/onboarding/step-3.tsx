@@ -1,10 +1,10 @@
 /** @format */
 
 import { router } from "expo-router";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
-import Text from "@/components/ui/Text";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -31,7 +31,10 @@ const benefits = [
 
 export default function Step3Screen() {
 	return (
-		<SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+		<SafeAreaView
+			style={styles.safeArea}
+			edges={["top", "left", "right", "bottom"]}
+		>
 			<View style={styles.container}>
 				<View style={styles.stepIndicator}>
 					<View style={styles.stepTopRow}>
@@ -40,26 +43,33 @@ export default function Step3Screen() {
 							<Text style={styles.doneText}>Selesai</Text>
 						</View>
 					</View>
+
 					<View style={styles.progressBar}>
 						<View style={[styles.progressFill, { width: "100%" }]} />
 					</View>
 				</View>
 
-				<View style={styles.content}>
+				<ScrollView
+					style={styles.content}
+					contentContainerStyle={styles.contentContainer}
+					showsVerticalScrollIndicator={false}
+				>
 					<Text style={styles.title}>Setiap Langkah Berarti</Text>
+
 					<Text style={styles.description}>
-						Fokus pada konsistensi latihan harian{"\n"}tanpa target medis yang
-						membebani.
+						Fokus pada konsistensi latihan harian{"\n"}
+						tanpa target medis yang membebani.
 					</Text>
 
 					<View style={styles.cards}>
-						{benefits.map((b, i) => (
-							<View key={i} style={styles.card}>
+						{benefits.map((b) => (
+							<View key={b.title} style={styles.card}>
 								<View style={styles.cardLeft}>
 									<View style={styles.iconWrap}>
 										<Ionicons name={b.icon} size={22} color={Colors.primary} />
 									</View>
 								</View>
+
 								<View style={styles.cardBody}>
 									<Text style={styles.cardTitle}>{b.title}</Text>
 									<Text style={styles.cardDesc}>{b.description}</Text>
@@ -67,31 +77,31 @@ export default function Step3Screen() {
 							</View>
 						))}
 					</View>
-				</View>
+				</ScrollView>
 
 				<View style={styles.actions}>
 					<TouchableOpacity
 						style={styles.primaryButton}
 						activeOpacity={0.8}
-						onPress={() => router.replace("/(tabs)")}
+						onPress={() => router.replace("/register")}
 					>
-						<Text style={styles.primaryButtonText}>Mulai Belajar</Text>
+						<Text style={styles.primaryButtonText}>Daftar Sekarang</Text>
 						<Ionicons
 							name="arrow-forward"
 							size={20}
 							color={Colors.textOnPrimary}
 						/>
 					</TouchableOpacity>
-					<View style={styles.freeNote}>
-						<Ionicons
-							name="checkmark-circle"
-							size={16}
-							color={Colors.textSecondary}
-						/>
-						<Text style={styles.freeNoteText}>
-							Tidak memerlukan akun berbayar
+
+					<TouchableOpacity
+						style={styles.secondaryButton}
+						activeOpacity={0.6}
+						onPress={() => router.replace("/login")}
+					>
+						<Text style={styles.secondaryButtonText}>
+							Saya sudah punya akun
 						</Text>
-					</View>
+					</TouchableOpacity>
 				</View>
 			</View>
 		</SafeAreaView>
@@ -99,23 +109,39 @@ export default function Step3Screen() {
 }
 
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: Colors.background },
-	container: { flex: 1, paddingHorizontal: Spacing.lg },
-	stepIndicator: { paddingTop: Spacing.lg, marginBottom: Spacing.xl },
+	safeArea: {
+		flex: 1,
+		backgroundColor: Colors.background,
+	},
+	container: {
+		flex: 1,
+		paddingHorizontal: Spacing.lg,
+	},
+	stepIndicator: {
+		paddingTop: Spacing.lg,
+		marginBottom: Spacing.xl,
+	},
 	stepTopRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
 		marginBottom: Spacing.sm,
 	},
-	stepText: { fontSize: FontSize.sm, color: Colors.textSecondary },
+	stepText: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
+	},
 	doneBadge: {
 		backgroundColor: Colors.success + "20",
 		borderRadius: Radius.full,
 		paddingHorizontal: Spacing.sm,
 		paddingVertical: 4,
 	},
-	doneText: { fontSize: FontSize.xs, color: Colors.success, fontWeight: "600" },
+	doneText: {
+		fontSize: FontSize.xs,
+		color: Colors.success,
+		fontWeight: "600",
+	},
 	progressBar: {
 		height: 4,
 		backgroundColor: Colors.border,
@@ -126,7 +152,12 @@ const styles = StyleSheet.create({
 		backgroundColor: Colors.primary,
 		borderRadius: Radius.full,
 	},
-	content: { flex: 1 },
+	content: {
+		flex: 1,
+	},
+	contentContainer: {
+		paddingBottom: Spacing.lg,
+	},
 	title: {
 		fontSize: FontSize.xxl,
 		fontWeight: "800",
@@ -139,7 +170,9 @@ const styles = StyleSheet.create({
 		lineHeight: 24,
 		marginBottom: Spacing.xl,
 	},
-	cards: { gap: Spacing.md },
+	cards: {
+		gap: Spacing.md,
+	},
 	card: {
 		backgroundColor: Colors.surface,
 		borderRadius: Radius.xl,
@@ -152,7 +185,9 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.06,
 		shadowRadius: 8,
 	},
-	cardLeft: { flexShrink: 0 },
+	cardLeft: {
+		flexShrink: 0,
+	},
 	iconWrap: {
 		width: 44,
 		height: 44,
@@ -161,7 +196,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	cardBody: { flex: 1 },
+	cardBody: {
+		flex: 1,
+	},
 	cardTitle: {
 		fontSize: FontSize.md,
 		fontWeight: "700",
@@ -173,7 +210,12 @@ const styles = StyleSheet.create({
 		color: Colors.textSecondary,
 		lineHeight: 20,
 	},
-	actions: { paddingBottom: Spacing.xl, gap: Spacing.md },
+	actions: {
+		paddingTop: Spacing.md,
+		paddingBottom: Spacing.md,
+		gap: Spacing.sm,
+		backgroundColor: Colors.background,
+	},
 	primaryButton: {
 		backgroundColor: Colors.primary,
 		paddingVertical: Spacing.md,
@@ -188,11 +230,15 @@ const styles = StyleSheet.create({
 		fontSize: FontSize.md,
 		fontWeight: "700",
 	},
-	freeNote: {
-		flexDirection: "row",
+	secondaryButton: {
+		paddingVertical: Spacing.sm,
 		alignItems: "center",
 		justifyContent: "center",
-		gap: 6,
 	},
-	freeNoteText: { fontSize: FontSize.sm, color: Colors.textSecondary },
+	secondaryButtonText: {
+		color: Colors.primary,
+		fontSize: FontSize.md,
+		fontWeight: "700",
+		textAlign: "center",
+	},
 });

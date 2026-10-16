@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { speakingService } from "@/services/speaking.service";
-import type { SpeakingModule, SpeakingSentence } from "@/types/api";
+import type { SpeakingModule, Sentence } from "@/types/api";
 
 type SessionPhase =
 	| { status: "idle" }
@@ -15,7 +15,7 @@ type SessionPhase =
 			sessionId: string;
 			currentIndex: number;
 			total: number;
-			sentences: SpeakingSentence[];
+			sentences: Sentence[];
 			attempts: Map<
 				string,
 				{ transcript?: string; score?: number; clarity?: number; completeness?: number }
@@ -49,13 +49,13 @@ export function useSpeakingSession() {
 	const startSession = useCallback(async (moduleId: string) => {
 		setPhase({ status: "starting_session" });
 		try {
-			const { session } = await speakingService.startSession(moduleId);
+			const { session, sentences, progress } = await speakingService.startSession(moduleId);
 			setPhase({
 				status: "active",
 				sessionId: session.id,
 				currentIndex: 0,
-				total: session.sentences.length,
-				sentences: session.sentences,
+				total: progress.total,
+				sentences: sentences,
 				attempts: new Map(),
 			});
 		} catch (err: unknown) {

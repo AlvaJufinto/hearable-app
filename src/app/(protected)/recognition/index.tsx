@@ -1,7 +1,8 @@
 /** @format */
 
-import { useEffect, useState, useRef } from "react";
-import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import { router } from "expo-router";
 import {
 	ActivityIndicator,
@@ -11,45 +12,39 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 
+import {
+	ActionButton,
+	ActionButtonText,
+	AudioVisualizer,
+	BadgeRow,
+	CenterState,
+	ModuleCard as SharedModuleCard,
+	ProgressBar,
+} from "@/components/modules";
 import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
-import { useListeningSession } from "@/hooks/useListeningSession";
+import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useExerciseProgress } from "@/hooks/useExerciseProgress";
-import type { ListeningModule, ListeningQuestion } from "@/types/api";
+import { useListeningSession } from "@/hooks/useListeningSession";
+import type { ListeningQuestion } from "@/types/api";
+import { Ionicons } from "@expo/vector-icons";
 
 const EQUALIZER_HEIGHTS = [16, 28, 36, 20, 32, 40, 24, 32, 16, 8, 8];
 
-function ModuleCard({
-	module,
-	onSelect,
-}: {
-	module: ListeningModule;
-	onSelect: () => void;
-}) {
-	const difficultyLabel = ["", "Pemula", "Dasar", "Menengah", "Mahir"][
-		module.difficulty
-	];
+const DIFFICULTY_LABELS: Record<number, string> = {
+	1: "Pemula",
+	2: "Dasar",
+	3: "Menengah",
+	4: "Mahir",
+};
 
-	return (
-		<TouchableOpacity
-			style={styles.moduleCard}
-			activeOpacity={0.8}
-			onPress={onSelect}
-		>
-			<View style={styles.moduleCardIcon}>
-				<Ionicons name="headset" size={20} color={Colors.primary} />
-			</View>
-			<View style={styles.moduleCardInfo}>
-				<Text style={styles.moduleCardTitle}>{module.name}</Text>
-				<Text style={styles.moduleCardMeta}>
-					{module.question_count} audio · {difficultyLabel}
-				</Text>
-			</View>
-			<Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
-		</TouchableOpacity>
-	);
+function formatTime(ms: number) {
+	const totalSec = Math.floor(ms / 1000);
+	const min = Math.floor(totalSec / 60);
+	const sec = totalSec % 60;
+
+	return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
 }
 
 function AudioCard({ audioUrl }: { audioUrl?: string }) {
@@ -63,48 +58,39 @@ function AudioCard({ audioUrl }: { audioUrl?: string }) {
 	}, [audioUrl, loadAudio]);
 
 	useEffect(() => {
-		if (status === "playing") {
-			const interval = setInterval(() => {
-				setBarIndex((i) => (i + 1) % EQUALIZER_HEIGHTS.length);
-			}, 150);
-			return () => clearInterval(interval);
-		}
+		if (status !== "playing") return;
+
+		const interval = setInterval(() => {
+			setBarIndex((index) => (index + 1) % EQUALIZER_HEIGHTS.length);
+		}, 150);
+
+		return () => clearInterval(interval);
 	}, [status]);
 
-	const formatTime = (ms: number) => {
-		const totalSec = Math.floor(ms / 1000);
-		const min = Math.floor(totalSec / 60);
-		const sec = totalSec % 60;
-		return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
-	};
-
 	const isPlaying = status === "playing";
-	const progressText = duration > 0
-		? `${formatTime(position)} / ${formatTime(duration)}`
-		: "Memuat audio...";
+	const progressText =
+		duration > 0
+			? `${formatTime(position)} / ${formatTime(duration)}`
+			: "Memuat audio...";
 
 	return (
 		<View style={styles.audioCard}>
 			<Text style={styles.audioStatus}>
-				{isPlaying ? `Memutar Suara... (${progressText})` : `Siap diputar`}
+				{isPlaying ? `Memutar Suara... (${progressText})` : "Siap diputar"}
 			</Text>
-			<View style={styles.equalizerRow}>
-				{EQUALIZER_HEIGHTS.map((_, i) => {
-					const baseH = EQUALIZER_HEIGHTS[(i + barIndex) % EQUALIZER_HEIGHTS.length];
-					const h = isPlaying ? baseH : baseH * 0.6;
-					return (
-						<View
-							key={i}
-							style={[
-								styles.equalizerBar,
-								{ height: h, backgroundColor: isPlaying ? Colors.primary : Colors.surface },
-							]}
-						/>
-					);
-				})}
-			</View>
+
+			<AudioVisualizer
+				variant="equalizer"
+				heights={EQUALIZER_HEIGHTS.map((height, index) =>
+					isPlaying
+						? EQUALIZER_HEIGHTS[(index + barIndex) % EQUALIZER_HEIGHTS.length]
+						: height * 0.6,
+				)}
+			/>
+
 			<View style={styles.playButtonWrapper}>
 				<View style={styles.playAura} />
+
 				<TouchableOpacity
 					style={styles.playButton}
 					activeOpacity={0.8}
@@ -112,10 +98,13 @@ function AudioCard({ audioUrl }: { audioUrl?: string }) {
 						if (audioUrl) loadAudio(audioUrl);
 					}}
 					disabled={!audioUrl}
+					accessibilityRole="button"
+					accessibilityLabel="Putar ulang audio"
 				>
 					<Ionicons name="refresh" size={24} color={Colors.surface} />
 				</TouchableOpacity>
 			</View>
+
 			<View style={styles.helperBadge}>
 				<Ionicons
 					name="information-circle-outline"
@@ -133,7 +122,8 @@ function AccessibleNote() {
 		<View style={styles.accessibleNote}>
 			<Ionicons name="volume-high" size={14} color={Colors.primary} />
 			<Text style={styles.accessibleNoteText}>
-				Tersedia petunjuk teks jika kamu tidak dapat mendengar suara dengan jelas.
+				Tersedia petunjuk teks jika kamu tidak dapat mendengar suara dengan
+				jelas.
 			</Text>
 		</View>
 	);
@@ -153,24 +143,38 @@ function RadioOption({
 			style={[styles.radioOption, selected && styles.radioOptionSelected]}
 			activeOpacity={0.8}
 			onPress={onSelect}
+			accessibilityRole="radio"
+			accessibilityState={{ selected: Boolean(selected) }}
 		>
-			<View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
-				{selected && <View style={styles.radioDot} />}
-			</View>
-			<Text
-				style={[styles.radioLabel, selected && styles.radioLabelSelected]}
+			<View
+				style={[styles.radioCircle, selected && styles.radioCircleSelected]}
 			>
+				{selected ? <View style={styles.radioDot} /> : null}
+			</View>
+
+			<Text style={[styles.radioLabel, selected && styles.radioLabelSelected]}>
 				{label}
 			</Text>
-			{!selected && (
-				<Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
-			)}
-			{selected && (
-				<Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
-			)}
+
+			<Ionicons
+				name={selected ? "checkmark-circle" : "chevron-forward"}
+				size={selected ? 16 : 14}
+				color={selected ? Colors.primary : Colors.textSecondary}
+			/>
 		</TouchableOpacity>
 	);
 }
+
+type QuestionViewProps = {
+	question: ListeningQuestion;
+	currentIndex: number;
+	total: number;
+	selectedAnswerId: string | null;
+	onSelectAnswer: (id: string) => void;
+	onSubmit: () => void;
+	onSkip: () => void;
+	isSubmitting?: boolean;
+};
 
 function QuestionView({
 	question,
@@ -181,38 +185,15 @@ function QuestionView({
 	onSubmit,
 	onSkip,
 	isSubmitting,
-}: {
-	question: ListeningQuestion;
-	currentIndex: number;
-	total: number;
-	selectedAnswerId: string | null;
-	onSelectAnswer: (id: string) => void;
-	onSubmit: () => void;
-	onSkip: () => void;
-	isSubmitting: boolean;
-}) {
+}: QuestionViewProps) {
 	return (
 		<>
-			<View style={styles.badgeRow}>
-				<View style={styles.badge}>
-					<Ionicons name="headset" size={14} color={Colors.primary} />
-					<Text style={styles.badgeText}>{question.question}</Text>
-				</View>
-				<View style={styles.progressPill}>
-					<Text style={styles.progressPillText}>
-						{currentIndex + 1} dari {total}
-					</Text>
-				</View>
-			</View>
+			<BadgeRow
+				label={question.question}
+				progressText={`${currentIndex + 1} dari ${total}`}
+			/>
 
-			<View style={styles.progressTrack}>
-				<View
-					style={[
-						styles.progressFill,
-						{ width: `${((currentIndex + 1) / total) * 100}%` },
-					]}
-				/>
-			</View>
+			<ProgressBar progress={total > 0 ? (currentIndex + 1) / total : 0} />
 
 			<View style={styles.section}>
 				<Text style={styles.heading}>
@@ -220,27 +201,23 @@ function QuestionView({
 				</Text>
 			</View>
 
-			<AudioCard audioUrl={question.audioUrl} />
+			<AudioCard audioUrl={question.audio.url} />
 			<AccessibleNote />
 
 			<View style={styles.optionsSection}>
-				{question.options?.map((opt) => (
+				{question.options?.map((option) => (
 					<RadioOption
-						key={opt.id}
-						label={opt.text}
-						selected={selectedAnswerId === opt.id}
-						onSelect={() => onSelectAnswer(opt.id)}
+						key={option.id}
+						label={option.text}
+						selected={selectedAnswerId === option.id}
+						onSelect={() => onSelectAnswer(option.id)}
 					/>
 				))}
 			</View>
 
 			<View style={styles.bottomAction}>
-				<TouchableOpacity
-					style={[
-						styles.submitButton,
-						(!selectedAnswerId || isSubmitting) && styles.submitButtonDisabled,
-					]}
-					activeOpacity={0.8}
+				<ActionButton
+					variant="primary"
 					onPress={onSubmit}
 					disabled={!selectedAnswerId || isSubmitting}
 				>
@@ -248,20 +225,25 @@ function QuestionView({
 						<ActivityIndicator size="small" color={Colors.surface} />
 					) : (
 						<>
-							<Ionicons name="checkmark-circle" size={18} color={Colors.surface} />
-							<Text style={styles.submitButtonText}>Periksa Jawaban</Text>
+							<Ionicons
+								name="checkmark-circle"
+								size={18}
+								color={Colors.surface}
+							/>
+							<ActionButtonText variant="primary">
+								Periksa Jawaban
+							</ActionButtonText>
 						</>
 					)}
-				</TouchableOpacity>
+				</ActionButton>
 
-				<TouchableOpacity
-					style={styles.skipButton}
-					activeOpacity={0.8}
+				<ActionButton
+					variant="secondary"
 					onPress={onSkip}
 					disabled={isSubmitting}
 				>
-					<Text style={styles.skipButtonText}>Lewati</Text>
-				</TouchableOpacity>
+					<ActionButtonText variant="secondary">Lewati</ActionButtonText>
+				</ActionButton>
 			</View>
 		</>
 	);
@@ -271,6 +253,7 @@ export default function RecognitionScreen() {
 	const { phase, loadModules, startSession, submitAnswer, skipQuestion } =
 		useListeningSession();
 	const { setRecognitionDone } = useExerciseProgress();
+
 	const [pendingAnswerId, setPendingAnswerId] = useState<string | null>(null);
 	const prevIndexRef = useRef<number | null>(null);
 
@@ -280,10 +263,7 @@ export default function RecognitionScreen() {
 		}
 	}, [phase.status, loadModules]);
 
-	const currentIndex =
-		phase.status === "active"
-			? (phase as Extract<typeof phase, { status: "active" }>).currentIndex
-			: null;
+	const currentIndex = phase.status === "active" ? phase.currentIndex : null;
 
 	useEffect(() => {
 		if (currentIndex !== prevIndexRef.current) {
@@ -299,100 +279,101 @@ export default function RecognitionScreen() {
 		}
 	}, [phase, setRecognitionDone]);
 
-	const activePhase = phase;
-	let content: React.ReactNode;
+	let content: ReactNode;
 
-	if (
-		activePhase.status === "idle" ||
-		activePhase.status === "loading_modules"
-	) {
+	if (phase.status === "idle" || phase.status === "loading_modules") {
 		content = (
-			<View style={styles.centerState}>
+			<CenterState>
 				<ActivityIndicator size="large" color={Colors.primary} />
 				<Text style={styles.stateText}>Memuat modul...</Text>
-			</View>
+			</CenterState>
 		);
-	} else if (activePhase.status === "modules_error") {
+	} else if (phase.status === "modules_error") {
 		content = (
-			<View style={styles.centerState}>
+			<CenterState>
 				<Ionicons name="alert-circle" size={40} color={Colors.error} />
-				<Text style={styles.errorText}>{activePhase.message}</Text>
-				<TouchableOpacity
-					style={styles.retryButton}
-					activeOpacity={0.8}
-					onPress={loadModules}
-				>
-					<Text style={styles.retryButtonText}>Coba Lagi</Text>
-				</TouchableOpacity>
-			</View>
+				<Text style={styles.errorText}>{phase.message}</Text>
+
+				<ActionButton variant="retry" onPress={loadModules}>
+					<ActionButtonText variant="retry">Coba Lagi</ActionButtonText>
+				</ActionButton>
+			</CenterState>
 		);
-	} else if (activePhase.status === "module_list") {
+	} else if (phase.status === "module_list") {
 		content = (
 			<View style={styles.moduleListSection}>
-				<Text style={styles.sectionTitle}>Pilih Modul</Text>
-				<Text style={styles.sectionSubtitle}>
-					Latih pendengaranmu dengan berbagai jenis suara
-				</Text>
-				{activePhase.modules.map((m) => (
-					<ModuleCard
-						key={m.id}
-						module={m}
-						onSelect={() => startSession(m.id)}
-					/>
-				))}
+				<View>
+					<Text style={styles.sectionTitle}>Pilih Modul</Text>
+					<Text style={styles.sectionSubtitle}>
+						Latih pendengaranmu dengan berbagai jenis suara.
+					</Text>
+				</View>
+
+				{phase.modules.map((module) => {
+					return (
+						<SharedModuleCard
+							key={module.id}
+							title={module.title}
+							description={module.description}
+							icon="headset-outline"
+							meta={[
+								{
+									icon: "help-circle-outline",
+									label: `${module.question_count} soal`,
+								},
+							]}
+							difficulty={module.difficulty}
+							onPress={() => startSession(module.id)}
+						/>
+					);
+				})}
 			</View>
 		);
-	} else if (activePhase.status === "starting_session") {
+	} else if (phase.status === "starting_session") {
 		content = (
-			<View style={styles.centerState}>
+			<CenterState>
 				<ActivityIndicator size="large" color={Colors.primary} />
 				<Text style={styles.stateText}>Memulai sesi...</Text>
-			</View>
+			</CenterState>
 		);
-	} else if (
-		activePhase.status === "active" ||
-		activePhase.status === "submitting_answer" ||
-		activePhase.status === "completing"
-	) {
-		const isSubmitting =
-			activePhase.status === "submitting_answer" ||
-			activePhase.status === "completing";
-		const active = activePhase as Extract<
-			typeof activePhase,
-			{ status: "active" }
-		>;
-		const q: ListeningQuestion =
-			active.questions[active.currentIndex];
+	} else if (phase.status === "active") {
+		const question: ListeningQuestion = phase.questions[phase.currentIndex];
 
 		content = (
 			<QuestionView
-				question={q}
-				currentIndex={active.currentIndex}
-				total={active.total}
+				question={question}
+				currentIndex={phase.currentIndex}
+				total={phase.total}
 				selectedAnswerId={
-					pendingAnswerId ??
-					(active.answers.get(q.id)?.answerId ?? null)
+					pendingAnswerId ?? phase.answers.get(question.id)?.answerId ?? null
 				}
-				onSelectAnswer={(id) => {
-					if (activePhase.status !== "active") return;
-					setPendingAnswerId(id);
-				}}
+				onSelectAnswer={setPendingAnswerId}
 				onSubmit={() => {
-					if (activePhase.status !== "active" || !pendingAnswerId) return;
-					submitAnswer(q.id, pendingAnswerId);
+					if (!pendingAnswerId) return;
+					submitAnswer(question.id, pendingAnswerId);
 				}}
-				onSkip={() => {
-					if (activePhase.status !== "active") return;
-					skipQuestion(q.id);
-				}}
-				isSubmitting={isSubmitting}
+				onSkip={() => skipQuestion(question.id)}
 			/>
+		);
+	} else if (
+		phase.status === "submitting_answer" ||
+		phase.status === "completing"
+	) {
+		content = (
+			<CenterState>
+				<ActivityIndicator size="large" color={Colors.primary} />
+				<Text style={styles.stateText}>
+					{phase.status === "completing"
+						? "Menyelesaikan sesi..."
+						: "Mengirim jawaban..."}
+				</Text>
+			</CenterState>
 		);
 	} else {
 		content = (
-			<View style={styles.centerState}>
+			<CenterState>
 				<ActivityIndicator size="large" color={Colors.primary} />
-			</View>
+			</CenterState>
 		);
 	}
 
@@ -401,6 +382,8 @@ export default function RecognitionScreen() {
 			<ScrollView
 				style={styles.scrollView}
 				contentContainerStyle={styles.scrollContent}
+				showsVerticalScrollIndicator={false}
+				keyboardShouldPersistTaps="handled"
 			>
 				{content}
 			</ScrollView>
@@ -409,15 +392,18 @@ export default function RecognitionScreen() {
 }
 
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: Colors.background },
-	scrollView: { flex: 1 },
-	scrollContent: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
-	centerState: {
+	safeArea: {
 		flex: 1,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingTop: 80,
-		gap: Spacing.md,
+		backgroundColor: Colors.background,
+	},
+	scrollView: {
+		flex: 1,
+	},
+	scrollContent: {
+		flexGrow: 1,
+		paddingHorizontal: Spacing.lg,
+		paddingTop: Spacing.md,
+		paddingBottom: Spacing.xl,
 	},
 	stateText: {
 		fontSize: FontSize.md,
@@ -428,18 +414,9 @@ const styles = StyleSheet.create({
 		color: Colors.error,
 		textAlign: "center",
 	},
-	retryButton: {
-		backgroundColor: Colors.primary,
-		paddingHorizontal: Spacing.lg,
-		paddingVertical: Spacing.sm,
-		borderRadius: Radius.md,
+	moduleListSection: {
+		gap: Spacing.md,
 	},
-	retryButtonText: {
-		fontSize: FontSize.md,
-		fontWeight: "600",
-		color: Colors.surface,
-	},
-	moduleListSection: { gap: Spacing.md },
 	sectionTitle: {
 		fontSize: FontSize.xl,
 		fontWeight: "700",
@@ -449,78 +426,11 @@ const styles = StyleSheet.create({
 	sectionSubtitle: {
 		fontSize: FontSize.md,
 		color: Colors.textSecondary,
-		marginBottom: Spacing.sm,
+		lineHeight: 22,
 	},
-	moduleCard: {
-		flexDirection: "row",
-		alignItems: "center",
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.lg,
-		padding: Spacing.md,
-		gap: Spacing.md,
-		borderWidth: 1,
-		borderColor: Colors.border,
-	},
-	moduleCardIcon: {
-		width: 44,
-		height: 44,
-		borderRadius: Radius.md,
-		backgroundColor: Colors.secondary + "22",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	moduleCardInfo: { flex: 1 },
-	moduleCardTitle: {
-		fontSize: FontSize.md,
-		fontWeight: "600",
-		color: Colors.text,
-		marginBottom: 2,
-	},
-	moduleCardMeta: {
-		fontSize: FontSize.sm,
-		color: Colors.textSecondary,
-	},
-	badgeRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		marginBottom: Spacing.sm,
-	},
-	badge: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 4,
-	},
-	badgeText: {
-		fontSize: FontSize.sm,
-		fontWeight: "600",
-		color: Colors.primary,
-		letterSpacing: 0.14,
-	},
-	progressPill: {
-		backgroundColor: Colors.surface,
-		paddingHorizontal: 10,
-		paddingVertical: 4,
-		borderRadius: 999,
-	},
-	progressPillText: {
-		fontSize: FontSize.xs,
-		fontWeight: "500",
-		color: Colors.textSecondary,
-	},
-	progressTrack: {
-		height: 8,
-		backgroundColor: Colors.surface,
-		borderRadius: 999,
+	section: {
 		marginBottom: Spacing.lg,
-		overflow: "hidden",
 	},
-	progressFill: {
-		height: "100%",
-		backgroundColor: Colors.primary,
-		borderRadius: 999,
-	},
-	section: { marginBottom: Spacing.lg },
 	heading: {
 		fontSize: FontSize.xl,
 		fontWeight: "600",
@@ -529,10 +439,12 @@ const styles = StyleSheet.create({
 	},
 	audioCard: {
 		backgroundColor: Colors.surface,
-		borderRadius: Radius.lg,
+		borderRadius: Radius.xl,
 		padding: Spacing.lg,
 		alignItems: "center",
 		marginBottom: Spacing.md,
+		borderWidth: 1,
+		borderColor: Colors.border,
 	},
 	audioStatus: {
 		fontSize: FontSize.sm,
@@ -541,22 +453,10 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		marginBottom: Spacing.md,
 	},
-	equalizerRow: {
-		flexDirection: "row",
-		alignItems: "flex-end",
-		justifyContent: "center",
-		gap: 6,
-		height: 40,
-		marginBottom: Spacing.md,
-	},
-	equalizerBar: {
-		width: 6,
-		borderRadius: 999,
-	},
 	playButtonWrapper: {
 		alignItems: "center",
 		justifyContent: "center",
-		marginBottom: Spacing.sm,
+		marginVertical: Spacing.md,
 	},
 	playAura: {
 		position: "absolute",
@@ -581,7 +481,7 @@ const styles = StyleSheet.create({
 		backgroundColor: Colors.secondary + "22",
 		paddingHorizontal: 12,
 		paddingVertical: 4,
-		borderRadius: 999,
+		borderRadius: Radius.full,
 	},
 	helperText: {
 		fontSize: FontSize.xs,
@@ -603,6 +503,7 @@ const styles = StyleSheet.create({
 		fontWeight: "500",
 		color: Colors.textSecondary,
 		flex: 1,
+		lineHeight: 18,
 	},
 	optionsSection: {
 		gap: Spacing.sm,
@@ -616,9 +517,12 @@ const styles = StyleSheet.create({
 		paddingVertical: 17,
 		paddingHorizontal: Spacing.md,
 		gap: 12,
+		borderWidth: 1,
+		borderColor: Colors.border,
 	},
 	radioOptionSelected: {
 		backgroundColor: Colors.secondary + "44",
+		borderColor: Colors.primary,
 	},
 	radioCircle: {
 		width: 24,
@@ -649,33 +553,5 @@ const styles = StyleSheet.create({
 	},
 	bottomAction: {
 		gap: Spacing.sm,
-	},
-	submitButton: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 8,
-		backgroundColor: Colors.primary,
-		paddingVertical: Spacing.md,
-		borderRadius: Radius.md,
-		minHeight: 52,
-	},
-	submitButtonDisabled: {
-		opacity: 0.5,
-	},
-	submitButtonText: {
-		fontSize: FontSize.md,
-		fontWeight: "600",
-		color: Colors.surface,
-		letterSpacing: 0.16,
-	},
-	skipButton: {
-		alignItems: "center",
-		paddingVertical: Spacing.sm,
-	},
-	skipButtonText: {
-		fontSize: FontSize.sm,
-		fontWeight: "500",
-		color: Colors.textSecondary,
 	},
 });

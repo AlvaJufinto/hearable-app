@@ -12,7 +12,7 @@ export const authService = {
 			false
 		);
 		await Promise.all([
-			storage.setTokens(res.accessToken, res.refreshToken),
+		storage.setTokens(res.access_token, res.refresh_token),
 			storage.setUserName(res.user.name),
 		]);
 		return res;
@@ -25,7 +25,7 @@ export const authService = {
 			false
 		);
 		await Promise.all([
-			storage.setTokens(res.accessToken, res.refreshToken),
+		storage.setTokens(res.access_token, res.refresh_token),
 			storage.setUserName(res.user.name),
 		]);
 		return res;

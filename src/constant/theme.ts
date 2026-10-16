@@ -5,6 +5,7 @@ export const Colors = {
 	secondary: "#89D1D9",
 	tertiary: "#FCE289",
 	accent: "#F2BB27",
+	warning: "#D6C210",
 
 	neutral: "#26352F",
 
@@ -17,6 +18,7 @@ export const Colors = {
 
 	border: "#DCE8E8",
 	disabled: "#B8D0D1",
+
 	error: "#B42318",
 	success: "#369FA6",
 } as const;

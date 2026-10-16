@@ -1,11 +1,12 @@
 /** @format */
 
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
-import Text from "@/components/ui/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { useProgressData } from "@/hooks/useProgressData";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
 
@@ -110,7 +111,9 @@ export default function ProgressScreen() {
 											{ backgroundColor: Colors.tertiary + "33" },
 										]}
 									>
-										<Text style={[styles.metricIconText, { color: Colors.accent }]}>
+										<Text
+											style={[styles.metricIconText, { color: Colors.accent }]}
+										>
 											◷
 										</Text>
 									</View>
@@ -190,7 +193,7 @@ export default function ProgressScreen() {
 					</Card>
 				) : (
 					<Card style={styles.recentCard}>
-							{history.slice(0, 5).map((item, index) => {
+						{history.slice(0, 5).map((item, index) => {
 							const isSpeaking = item.type === "speaking";
 							const progressTotal = item.progress?.total ?? 0;
 							return (
@@ -208,9 +211,15 @@ export default function ProgressScreen() {
 												},
 											]}
 										>
-											<Text style={styles.recentIconText}>
-												{isSpeaking ? "Aa" : "♫"}
-											</Text>
+											{isSpeaking ? (
+												<Text style={styles.recentIconText}>Aa</Text>
+											) : (
+												<MaterialCommunityIcons
+													name="ear-hearing"
+													size={24}
+													color={Colors.accent}
+												/>
+											)}
 										</View>
 
 										<View style={styles.recentInfo}>
@@ -219,12 +228,11 @@ export default function ProgressScreen() {
 											</Text>
 
 											<Text style={styles.recentDetail}>
-												{item.module_name} · {item.average_score ?? 0} dari {progressTotal}
+												{item.module_name} · {item.average_score ?? 0} dari{" "}
+												{progressTotal}
 											</Text>
 
-											{index === 0 && (
-												<StatusChip label="Dilanjutkan" />
-											)}
+											{index === 0 && <StatusChip label="Dilanjutkan" />}
 										</View>
 									</View>
 								</View>

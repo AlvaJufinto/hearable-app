@@ -8,11 +8,12 @@ import {
 	TouchableOpacity,
 	View,
 } from "react-native";
-import Text from "@/components/ui/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Text from "@/components/ui/Text";
 import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 import { useHomeData } from "@/hooks/useHomeData";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const WEEK_DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 
@@ -42,40 +43,49 @@ const modules = [
 	},
 ];
 
-function WeeklyActivityCard({
-	activity,
-}: {
-	activity: {
-		target_days: number;
-		completed_sessions: number;
-		days: { date: string; is_active: boolean }[];
-	};
-}) {
+type WeeklyActivity = {
+	target_days: number;
+	completed_sessions: number;
+	days: { date: string; is_active: boolean }[];
+};
+
+type ExerciseHistoryItem = {
+	type: "listening" | "speaking";
+	module_title: string;
+	status: "in_progress" | "completed";
+	progress?: { done: number; total: number };
+	average_score?: number | null;
+	correct?: number | null;
+	difficulty_label?: string;
+	completed_at?: string | null;
+};
+
+function WeeklyActivityCard({ activity }: { activity: WeeklyActivity }) {
+	const progress =
+		activity.target_days > 0
+			? Math.min(activity.completed_sessions / activity.target_days, 1)
+			: 0;
+
+	const percentage = Math.round(progress * 100);
+
 	return (
 		<View style={styles.card}>
 			<View style={styles.weeklyInfo}>
 				<View>
 					<Text style={styles.progressValue}>
-						{activity.completed_sessions} dari {activity.target_days} latihan selesai
+						{activity.completed_sessions} dari {activity.target_days} latihan
+						selesai
 					</Text>
 					<Text style={styles.progressHelper}>
 						Konsisten sedikit demi sedikit, ya!
 					</Text>
 				</View>
+
+				<Text style={styles.progressPercent}>{percentage}%</Text>
 			</View>
 
 			<View style={styles.progressTrack}>
-				<View
-					style={[
-						styles.progressFill,
-						{
-							width: `${Math.min(
-								1,
-								activity.completed_sessions / activity.target_days
-							) * 100}%`,
-						},
-					]}
-				/>
+				<View style={[styles.progressFill, { width: `${percentage}%` }]} />
 			</View>
 
 			<View style={styles.daysRow}>
@@ -97,81 +107,196 @@ function WeeklyActivityCard({
 	);
 }
 
-function LastExerciseCard({
-	history,
-}: {
-	history: { type: "listening" | "speaking"; module_name: string; progress?: { done: number; total: number }; average_score?: number }[];
-}) {
+function LastExerciseCard({ history }: { history: ExerciseHistoryItem[] }) {
 	const last = history[0];
+
 	if (!last) return null;
 
 	const isSpeaking = last.type === "speaking";
+	const isCompleted = last.status === "completed";
+
 	const done = last.progress?.done ?? 0;
 	const total = last.progress?.total ?? 0;
-	const score = last.average_score ?? 0;
-	const progress = total > 0 ? done / total : 0;
+
+	const percentage =
+		total > 0
+			? Math.round(Math.min(done / total, 1) * 100)
+			: isCompleted
+				? 100
+				: 0;
+
+	const moduleColor = isSpeaking ? Colors.primary : Colors.accent;
+	const moduleBackground = isSpeaking
+		? Colors.secondary + "33"
+		: Colors.tertiary + "33";
+
+	const statusLabel = isCompleted ? "Selesai" : "Berlangsung";
 
 	return (
-		<View style={styles.card}>
-			<View style={styles.lastExerciseTop}>
-				<View
-					style={[
-						styles.iconTile,
-						{
-							backgroundColor: isSpeaking
-								? Colors.secondary + "33"
-								: Colors.tertiary + "33",
-						},
-					]}
-				>
-					<Text
-						style={[
-							styles.iconTileText,
-							{ color: isSpeaking ? Colors.primary : Colors.accent },
-						]}
-					>
-						{isSpeaking ? "Aa" : "HS"}
-					</Text>
+		<View style={styles.lastExerciseCard}>
+			<View style={styles.lastExerciseHeader}>
+				<View style={[styles.iconTile, { backgroundColor: moduleBackground }]}>
+					{isSpeaking ? (
+						<Text style={[styles.iconTileText, { color: moduleColor }]}>
+							Aa
+						</Text>
+					) : (
+						<MaterialCommunityIcons
+							name="ear-hearing"
+							size={24}
+							color={moduleColor}
+						/>
+					)}
 				</View>
 
 				<View style={styles.lastExerciseInfo}>
-					<Text style={styles.moduleTitle}>
+					<Text style={styles.lastExerciseCategory}>
 						{isSpeaking ? "Latihan Bicara" : "Kenali Suara"}
 					</Text>
-					<Text style={styles.moduleMeta}>{last.module_name}</Text>
+
+					<Text style={styles.lastExerciseTitle}>{last.module_title}</Text>
+
+					{last.difficulty_label ? (
+						<Text style={styles.lastExerciseMeta}>{last.difficulty_label}</Text>
+					) : null}
 				</View>
 			</View>
 
-			<View style={styles.exerciseProgressInfo}>
-				<Text style={styles.progressHelper}>
-					{score} dari {total} selesai
-				</Text>
-				<Text style={styles.progressHelper}>
-					{Math.round(progress * 100)}%
-				</Text>
+			<View style={styles.lastExerciseDivider} />
+
+			<View style={styles.lastExerciseProgressHeader}>
+				<View style={styles.lastExerciseProgressInfo}>
+					<Text style={styles.lastExerciseProgressLabel}>
+						{isCompleted ? "Latihan selesai" : "Progress latihan"}
+					</Text>
+
+					<Text style={styles.lastExerciseProgressValue}>
+						{total > 0
+							? `${Math.min(done, total)} dari ${total} soal`
+							: isCompleted
+								? "Semua soal selesai"
+								: "Belum ada soal selesai"}
+					</Text>
+				</View>
+
+				<Text style={styles.lastExercisePercentage}>{percentage}%</Text>
 			</View>
 
-			<View style={styles.progressTrack}>
-				<View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+			<View
+				style={styles.lastExerciseProgressTrack}
+				accessibilityRole="progressbar"
+				accessibilityValue={{
+					min: 0,
+					max: 100,
+					now: percentage,
+				}}
+			>
+				<View style={[styles.progressFill, { width: `${percentage}%` }]} />
 			</View>
+
+			{isCompleted && last.correct != null ? (
+				<View style={styles.lastExerciseResult}>
+					<View style={styles.resultIcon}>
+						<Text style={styles.resultIconText}>✓</Text>
+					</View>
+
+					<View style={styles.resultInfo}>
+						<Text style={styles.lastExerciseResultLabel}>Jawaban benar</Text>
+						<Text style={styles.lastExerciseResultValue}>
+							{last.correct} dari {total} soal
+						</Text>
+					</View>
+				</View>
+			) : null}
 
 			<TouchableOpacity
-				style={[styles.moduleButton, styles.primaryButton]}
+				style={[
+					styles.lastExerciseButton,
+					isCompleted ? styles.secondaryExerciseButton : styles.primaryButton,
+				]}
 				activeOpacity={0.8}
 				onPress={() => router.push(isSpeaking ? "/speaking" : "/recognition")}
+				accessibilityRole="button"
+				accessibilityLabel={
+					isCompleted ? "Ulangi latihan" : "Lanjutkan latihan"
+				}
 			>
-				<Text style={styles.primaryButtonText}>Lanjutkan latihan</Text>
-				<Text style={styles.primaryButtonIcon}>→</Text>
+				<Text
+					style={[
+						styles.lastExerciseButtonText,
+						isCompleted
+							? styles.secondaryExerciseButtonText
+							: styles.primaryButtonText,
+					]}
+				>
+					{isCompleted ? "Ulangi latihan" : "Lanjutkan latihan"}
+				</Text>
+
+				<Text
+					style={[
+						styles.lastExerciseButtonIcon,
+						isCompleted
+							? styles.secondaryExerciseButtonText
+							: styles.primaryButtonText,
+					]}
+				>
+					{isCompleted ? "↻" : "→"}
+				</Text>
 			</TouchableOpacity>
 		</View>
 	);
 }
+function ModuleCard({ module }: { module: (typeof modules)[number] }) {
+	const isSpeaking = module.title === "Latihan Bicara";
 
+	return (
+		<View style={styles.moduleCard}>
+			<View style={styles.moduleCardTop}>
+				<View style={[styles.iconTile, { backgroundColor: module.iconBg }]}>
+					{isSpeaking ? (
+						<Text style={[styles.iconTileText, { color: module.iconColor }]}>
+							Aa
+						</Text>
+					) : (
+						<MaterialCommunityIcons
+							name="ear-hearing"
+							size={24}
+							color={module.iconColor}
+						/>
+					)}
+				</View>
+
+				<View style={styles.moduleInfo}>
+					<Text style={styles.moduleTitle}>{module.title}</Text>
+					<Text style={styles.moduleMeta}>{module.meta}</Text>
+				</View>
+			</View>
+
+			<Text style={styles.moduleDesc}>{module.description}</Text>
+
+			<TouchableOpacity
+				style={[styles.moduleButton, { backgroundColor: module.buttonBg }]}
+				activeOpacity={0.8}
+				onPress={() => router.push(module.route as any)}
+				accessibilityRole="button"
+				accessibilityLabel={`Mulai ${module.title}`}
+			>
+				<Text style={[styles.moduleButtonText, { color: module.buttonColor }]}>
+					Mulai latihan
+				</Text>
+
+				<Text style={[styles.moduleButtonIcon, { color: module.buttonColor }]}>
+					→
+				</Text>
+			</TouchableOpacity>
+		</View>
+	);
+}
 export default function BerandaScreen() {
 	const { state } = useHomeData();
 
-	const userName =
-		state.status === "authenticated" ? state.userName : "User";
+	const userName = state.status === "authenticated" ? state.userName : "User";
+
 	const greeting = userName ? `Halo, ${userName}!` : "Halo!";
 
 	if (state.status === "idle" || state.status === "loading") {
@@ -193,6 +318,7 @@ export default function BerandaScreen() {
 			>
 				<View style={styles.header}>
 					<Text style={styles.brandText}>HearAble</Text>
+
 					<View style={styles.avatar}>
 						<Text style={styles.avatarText}>
 							{userName.charAt(0).toUpperCase()}
@@ -211,23 +337,25 @@ export default function BerandaScreen() {
 					<>
 						<View style={styles.section}>
 							<View style={styles.sectionHeader}>
-								<Text style={styles.sectionTitle}>
-									Aktivitas Minggu Ini
+								<Text style={styles.sectionTitle}>Aktivitas Minggu Ini</Text>
+								<Text style={styles.sectionMeta}>
+									Target {state.activity.target_days} hari
 								</Text>
-								<Text style={styles.sectionMeta}>Target 5 hari</Text>
 							</View>
+
 							<WeeklyActivityCard activity={state.activity} />
 						</View>
 
 						{state.history.length > 0 && (
 							<View style={styles.section}>
 								<View style={styles.sectionHeader}>
-									<Text style={styles.sectionTitle}>
-										Lanjutkan Latihan
-									</Text>
-									<Text style={styles.sectionMeta}>Hari ini</Text>
+									<Text style={styles.sectionTitle}>Lanjutkan Latihan</Text>
+									<Text style={styles.sectionMeta}>Terakhir</Text>
 								</View>
-								<LastExerciseCard history={state.history} />
+
+								<LastExerciseCard
+									history={state.history as unknown as ExerciseHistoryItem[]}
+								/>
 							</View>
 						)}
 					</>
@@ -240,50 +368,7 @@ export default function BerandaScreen() {
 					</View>
 
 					{modules.map((module) => (
-						<View key={module.title} style={styles.moduleCard}>
-							<View style={styles.moduleCardTop}>
-								<View
-									style={[
-										styles.iconTile,
-										{ backgroundColor: module.iconBg },
-									]}
-								>
-									<Text
-										style={[
-											styles.iconTileText,
-											{ color: module.iconColor },
-										]}
-									>
-										{module.iconText}
-									</Text>
-								</View>
-
-								<View style={styles.moduleInfo}>
-									<Text style={styles.moduleTitle}>{module.title}</Text>
-									<Text style={styles.moduleMeta}>{module.meta}</Text>
-								</View>
-							</View>
-
-							<Text style={styles.moduleDesc}>{module.description}</Text>
-
-							<TouchableOpacity
-								style={[
-									styles.moduleButton,
-									{ backgroundColor: module.buttonBg },
-								]}
-								activeOpacity={0.8}
-								onPress={() => router.push(module.route as any)}
-							>
-								<Text
-									style={[
-										styles.moduleButtonText,
-										{ color: module.buttonColor },
-									]}
-								>
-									Mulai latihan
-								</Text>
-							</TouchableOpacity>
-						</View>
+						<ModuleCard key={module.title} module={module} />
 					))}
 				</View>
 			</ScrollView>
@@ -432,12 +517,6 @@ const styles = StyleSheet.create({
 	dayDotEmpty: {
 		backgroundColor: Colors.border,
 	},
-	lastExerciseTop: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: Spacing.md,
-		marginBottom: Spacing.md,
-	},
 	iconTile: {
 		width: 48,
 		height: 48,
@@ -452,14 +531,168 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: Colors.primary,
 	},
+	lastExerciseCard: {
+		backgroundColor: Colors.surface,
+		borderRadius: Radius.xl,
+		padding: Spacing.lg,
+		borderWidth: 1,
+		borderColor: Colors.border,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.06,
+		shadowRadius: 8,
+	},
+	lastExerciseHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.md,
+	},
 	lastExerciseInfo: {
 		flex: 1,
+		gap: 3,
 	},
-	exerciseProgressInfo: {
+	lastExerciseCategory: {
+		fontSize: FontSize.xs,
+		fontWeight: "700",
+		letterSpacing: 0.7,
+		color: Colors.textSecondary,
+	},
+	lastExerciseTitle: {
+		fontSize: FontSize.md,
+		fontWeight: "700",
+		color: Colors.text,
+	},
+	lastExerciseMeta: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
+	},
+	statusBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		alignSelf: "flex-start",
+		gap: 5,
+		paddingHorizontal: Spacing.sm,
+		paddingVertical: 6,
+		borderRadius: Radius.full,
+	},
+	completedBadge: {
+		backgroundColor: Colors.secondary + "33",
+	},
+	inProgressBadge: {
+		backgroundColor: Colors.tertiary + "33",
+	},
+	statusDot: {
+		width: 6,
+		height: 6,
+		borderRadius: Radius.full,
+	},
+	statusText: {
+		fontSize: FontSize.xs,
+		fontWeight: "600",
+	},
+	lastExerciseDivider: {
+		height: StyleSheet.hairlineWidth,
+		backgroundColor: Colors.border,
+		marginVertical: Spacing.lg,
+	},
+	lastExerciseProgressHeader: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
+		gap: Spacing.md,
 		marginBottom: Spacing.sm,
+	},
+	lastExerciseProgressInfo: {
+		flex: 1,
+	},
+	lastExerciseProgressLabel: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
+		marginBottom: 4,
+	},
+	lastExerciseProgressValue: {
+		fontSize: FontSize.md,
+		fontWeight: "600",
+		color: Colors.text,
+	},
+	lastExercisePercentage: {
+		fontSize: FontSize.xl,
+		fontWeight: "800",
+		color: Colors.primary,
+	},
+	lastExerciseProgressTrack: {
+		height: 8,
+		backgroundColor: Colors.secondary + "33",
+		borderRadius: Radius.full,
+		overflow: "hidden",
+		marginBottom: Spacing.md,
+	},
+	lastExerciseResult: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.sm,
+		padding: Spacing.md,
+		backgroundColor: Colors.background,
+		borderRadius: Radius.md,
+		marginBottom: Spacing.md,
+	},
+	resultIcon: {
+		width: 32,
+		height: 32,
+		borderRadius: Radius.full,
+		backgroundColor: Colors.secondary + "33",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	resultIconText: {
+		fontSize: FontSize.md,
+		fontWeight: "800",
+		color: Colors.primary,
+	},
+	resultInfo: {
+		flex: 1,
+		gap: 2,
+	},
+	lastExerciseResultLabel: {
+		fontSize: FontSize.sm,
+		color: Colors.textSecondary,
+	},
+	lastExerciseResultValue: {
+		fontSize: FontSize.sm,
+		fontWeight: "700",
+		color: Colors.text,
+	},
+	lastExerciseButton: {
+		minHeight: 48,
+		borderRadius: Radius.lg,
+		paddingVertical: Spacing.sm + 2,
+		paddingHorizontal: Spacing.md,
+		alignItems: "center",
+		justifyContent: "center",
+		flexDirection: "row",
+		gap: Spacing.sm,
+	},
+	primaryButton: {
+		backgroundColor: Colors.primary,
+	},
+	secondaryExerciseButton: {
+		backgroundColor: Colors.secondary + "33",
+		borderWidth: 1,
+		borderColor: Colors.border,
+	},
+	lastExerciseButtonText: {
+		fontSize: FontSize.md,
+		fontWeight: "700",
+	},
+	lastExerciseButtonIcon: {
+		fontSize: FontSize.xl,
+		fontWeight: "600",
+	},
+	primaryButtonText: {
+		color: Colors.textOnPrimary,
+	},
+	secondaryExerciseButtonText: {
+		color: Colors.primary,
 	},
 	moduleCard: {
 		backgroundColor: Colors.surface,
@@ -499,6 +732,7 @@ const styles = StyleSheet.create({
 		marginBottom: Spacing.md,
 	},
 	moduleButton: {
+		minHeight: 44,
 		borderRadius: Radius.lg,
 		paddingVertical: Spacing.sm + 2,
 		paddingHorizontal: Spacing.md,
@@ -514,18 +748,5 @@ const styles = StyleSheet.create({
 	moduleButtonIcon: {
 		fontSize: FontSize.xl,
 		fontWeight: "500",
-	},
-	primaryButton: {
-		backgroundColor: Colors.primary,
-	},
-	primaryButtonText: {
-		fontSize: FontSize.md,
-		fontWeight: "600",
-		color: Colors.textOnPrimary,
-	},
-	primaryButtonIcon: {
-		fontSize: FontSize.xl,
-		fontWeight: "500",
-		color: Colors.textOnPrimary,
 	},
 });

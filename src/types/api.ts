@@ -27,9 +27,12 @@ export interface AuthResponse {
 
 export interface ListeningModule {
 	id: string;
-	name: string;
+	label: string;
+	title: string;
 	description: string;
 	difficulty: 1 | 2 | 3 | 4;
+	difficulty_label: string;
+	estimated_minutes: number;
 	question_count: number;
 }
 
@@ -42,9 +45,15 @@ export interface ListeningQuestion {
 	id: string;
 	type: "multiple_choice" | "input";
 	question: string;
-	audio_url?: string;
+	audio: Audio;
 	options?: ListeningOption[];
 	hint?: string;
+}
+
+export interface Audio {
+	url: string;
+	duration: number;
+	hint_text: string;
 }
 
 export interface ListeningAnswer {
@@ -88,15 +97,20 @@ export interface ListeningSummary {
 
 export interface SpeakingModule {
 	id: string;
-	name: string;
+	label: string;
+	title?: string;
 	description: string;
 	difficulty: 1 | 2 | 3 | 4;
+	difficulty_label: string;
+	estimated_minutes: number;
 	sentence_count: number;
 }
 
 export interface Syllable {
 	text: string;
 	highlighted?: boolean;
+	stress: boolean;
+	break: boolean;
 }
 
 export interface Sentence {
