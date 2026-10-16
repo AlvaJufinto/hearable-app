@@ -8,6 +8,7 @@ import {
 	ActivityIndicator,
 	ScrollView,
 	StyleSheet,
+	TextInput,
 	TouchableOpacity,
 	View,
 } from "react-native";
@@ -37,7 +38,9 @@ function formatTime(ms: number) {
 	const min = Math.floor(totalSec / 60);
 	const sec = totalSec % 60;
 
-	return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+	return `${min.toString().padStart(2, "0")}:${sec
+		.toString()
+		.padStart(2, "0")}`;
 }
 
 function AudioCard({ audioUrl }: { audioUrl?: string }) {
@@ -158,14 +161,49 @@ function RadioOption({
 	);
 }
 
+function TextAnswerInput({
+	value,
+	onChangeText,
+	placeholder,
+	editable = true,
+}: {
+	value: string;
+	onChangeText: (text: string) => void;
+	placeholder?: string;
+	editable?: boolean;
+}) {
+	return (
+		<TextInput
+			value={value}
+			onChangeText={onChangeText}
+			placeholder={placeholder ?? "Tulis jawabanmu di sini..."}
+			placeholderTextColor={Colors.disabled}
+			style={[styles.textInput, !editable && styles.textInputReadonly]}
+			multiline={false}
+			autoCapitalize="none"
+			autoCorrect={false}
+			returnKeyType="done"
+			editable={editable}
+			accessibilityLabel="Jawaban teks"
+		/>
+	);
+}
+
 type QuestionViewProps = {
 	question: ListeningQuestion;
 	currentIndex: number;
 	total: number;
 	selectedAnswerId: string | null;
 	onSelectAnswer: (id: string) => void;
+	textAnswer: string;
+	onChangeText: (text: string) => void;
 	onSubmit: () => void;
 	onSkip: () => void;
+	onPrevious: () => void;
+	onNext: () => void;
+	canGoPrevious: boolean;
+	canGoNext: boolean;
+	isAnswered: boolean;
 	isSubmitting?: boolean;
 };
 
@@ -175,10 +213,23 @@ function QuestionView({
 	total,
 	selectedAnswerId,
 	onSelectAnswer,
+	textAnswer,
+	onChangeText,
 	onSubmit,
 	onSkip,
+	onPrevious,
+	onNext,
+	canGoPrevious,
+	canGoNext,
+	isAnswered,
 	isSubmitting,
 }: QuestionViewProps) {
+	const isTextQuestion = question.type === "input";
+
+	const hasAnswer = isTextQuestion
+		? textAnswer.trim().length > 0
+		: Boolean(selectedAnswerId);
+
 	return (
 		<>
 			<BadgeRow
@@ -189,74 +240,106 @@ function QuestionView({
 			<ProgressBar progress={total > 0 ? (currentIndex + 1) / total : 0} />
 
 			<View style={styles.section}>
-				<Text style={styles.heading}>
-					Dengarkan audio berikut dan pilih{"\n"}sumber bunyi yang tepat.
-				</Text>
+				<Text style={styles.heading}>{question.audio.hint_text}</Text>
 			</View>
 
 			<AudioCard audioUrl={question.audio.url} />
 			<AccessibleNote />
 
 			<View style={styles.optionsSection}>
-				{question.options?.map((option, i) => {
-					//console.log("=========================", i + 1);
-					//console.log(
-					//	"🚀 ~ QuestionView ~ question.options:",
-					//	question.options,
-					//);
-
-					return (
+				{isTextQuestion ? (
+					<TextAnswerInput
+						value={textAnswer}
+						onChangeText={onChangeText}
+						editable={!isAnswered}
+					/>
+				) : (
+					question.options?.map((option) => (
 						<RadioOption
 							key={option.id}
 							label={option.text}
 							selected={selectedAnswerId === option.id}
 							onSelect={() => onSelectAnswer(option.id)}
 						/>
-					);
-				})}
+					))
+				)}
+			</View>
+
+			<View style={styles.navigationActions}>
+				<ActionButton
+					variant="secondary"
+					onPress={onPrevious}
+					disabled={!canGoPrevious || isSubmitting}
+				>
+					<Ionicons name="arrow-back" size={16} color={Colors.text} />
+					<ActionButtonText variant="secondary">Sebelumnya</ActionButtonText>
+				</ActionButton>
+
+				{canGoNext && (
+					<ActionButton
+						variant="secondary"
+						onPress={onNext}
+						disabled={isSubmitting}
+					>
+						<ActionButtonText variant="secondary">Berikutnya</ActionButtonText>
+						<Ionicons name="arrow-forward" size={16} color={Colors.text} />
+					</ActionButton>
+				)}
 			</View>
 
 			<View style={styles.bottomAction}>
 				<ActionButton
 					variant="primary"
 					onPress={onSubmit}
-					disabled={!selectedAnswerId || isSubmitting}
+					disabled={(!isAnswered && !hasAnswer) || Boolean(isSubmitting)}
 				>
 					{isSubmitting ? (
 						<ActivityIndicator size="small" color={Colors.surface} />
 					) : (
 						<>
 							<Ionicons
-								name="checkmark-circle"
+								name={isAnswered ? "arrow-forward-circle" : "checkmark-circle"}
 								size={18}
 								color={Colors.surface}
 							/>
 							<ActionButtonText variant="primary">
-								Periksa Jawaban
+								{isAnswered ? "Lanjutkan" : "Periksa Jawaban"}
 							</ActionButtonText>
 						</>
 					)}
 				</ActionButton>
 
-				<ActionButton
-					variant="secondary"
-					onPress={onSkip}
-					disabled={isSubmitting}
-				>
-					<ActionButtonText variant="secondary">Lewati</ActionButtonText>
-				</ActionButton>
+				{!isAnswered && (
+					<ActionButton
+						variant="secondary"
+						onPress={onSkip}
+						disabled={Boolean(isSubmitting)}
+					>
+						<ActionButtonText variant="secondary">Lewati</ActionButtonText>
+					</ActionButton>
+				)}
 			</View>
 		</>
 	);
 }
 
 export default function RecognitionScreen() {
-	const { phase, loadModules, startSession, submitAnswer, skipQuestion } =
-		useListeningSession();
-	const { setRecognitionDone } = useExerciseProgress();
+	const {
+		phase,
+		loadModules,
+		startSession,
+		submitAnswer,
+		skipQuestion,
+		previousQuestion,
+		nextQuestion,
+	} = useListeningSession();
+
+	const { setRecognitionDone, getState } = useExerciseProgress();
 
 	const [pendingAnswerId, setPendingAnswerId] = useState<string | null>(null);
+	const [pendingTextAnswer, setPendingTextAnswer] = useState("");
 	const prevIndexRef = useRef<number | null>(null);
+	const completionHandledRef = useRef(false);
 
 	useEffect(() => {
 		if (phase.status === "idle") {
@@ -267,18 +350,35 @@ export default function RecognitionScreen() {
 	const currentIndex = phase.status === "active" ? phase.currentIndex : null;
 
 	useEffect(() => {
+		if (phase.status !== "active") return;
+
 		if (currentIndex !== prevIndexRef.current) {
 			prevIndexRef.current = currentIndex;
-			setPendingAnswerId(null);
+
+			const question = phase.questions[phase.currentIndex];
+			const savedAnswer = phase.answers.get(question.id);
+
+			setPendingAnswerId(savedAnswer?.answerId ?? null);
+			setPendingTextAnswer(savedAnswer?.textAnswer ?? "");
 		}
-	}, [currentIndex]);
+	}, [phase, currentIndex]);
 
 	useEffect(() => {
-		if (phase.status === "done") {
-			setRecognitionDone(phase.correctAnswers, phase.totalQuestions);
-			router.push("/completion");
-		}
-	}, [phase, setRecognitionDone]);
+		if (phase.status !== "done" || completionHandledRef.current) return;
+
+		completionHandledRef.current = true;
+
+		console.log("[Recognition] Final score:", {
+			correctAnswers: phase.correctAnswers,
+			totalQuestions: phase.totalQuestions,
+		});
+
+		setRecognitionDone(phase.correctAnswers, phase.totalQuestions);
+
+		console.log("[Recognition] Saved progress:", getState());
+
+		router.replace("/completion");
+	}, [phase, setRecognitionDone, getState]);
 
 	let content: ReactNode;
 
@@ -322,7 +422,13 @@ export default function RecognitionScreen() {
 							},
 						]}
 						difficulty={module.difficulty}
-						onPress={() => startSession(module.id)}
+						onPress={() => {
+							prevIndexRef.current = null;
+							completionHandledRef.current = false;
+							setPendingAnswerId(null);
+							setPendingTextAnswer("");
+							startSession(module.id);
+						}}
 					/>
 				))}
 			</View>
@@ -336,35 +442,41 @@ export default function RecognitionScreen() {
 		);
 	} else if (phase.status === "active") {
 		const question: ListeningQuestion = phase.questions[phase.currentIndex];
-
-		console.log("[Listening] Current question:", {
-			currentIndex: phase.currentIndex,
-			total: phase.total,
-			questionId: question?.id,
-			optionsLength: question?.options?.length,
-			options: question?.options,
-		});
-
-		console.log(
-			"[Listening] All questions:",
-			phase.questions.map((q, index) => ({
-				index,
-				id: q.id,
-				optionsLength: q.options?.length,
-			})),
-		);
+		const savedAnswer = phase.answers.get(question.id);
+		const isAnswered = Boolean(savedAnswer);
 
 		content = (
 			<QuestionView
 				question={question}
 				currentIndex={phase.currentIndex}
 				total={phase.total}
-				selectedAnswerId={
-					pendingAnswerId ?? phase.answers.get(question.id)?.answerId ?? null
-				}
+				selectedAnswerId={pendingAnswerId ?? savedAnswer?.answerId ?? null}
 				onSelectAnswer={setPendingAnswerId}
+				textAnswer={pendingTextAnswer}
+				onChangeText={setPendingTextAnswer}
+				isAnswered={isAnswered}
+				canGoPrevious={phase.currentIndex > 0}
+				canGoNext={
+					isAnswered && phase.currentIndex < phase.questions.length - 1
+				}
+				onPrevious={previousQuestion}
+				onNext={nextQuestion}
 				onSubmit={() => {
+					if (isAnswered) {
+						nextQuestion();
+						return;
+					}
+
+					if (question.type === "input") {
+						const answer = pendingTextAnswer.trim();
+						if (!answer) return;
+
+						submitAnswer(question.id, undefined, answer);
+						return;
+					}
+
 					if (!pendingAnswerId) return;
+
 					submitAnswer(question.id, pendingAnswerId);
 				}}
 				onSkip={() => skipQuestion(question.id)}
@@ -382,6 +494,22 @@ export default function RecognitionScreen() {
 						? "Menyelesaikan sesi..."
 						: "Mengirim jawaban..."}
 				</Text>
+			</CenterState>
+		);
+	} else if (phase.status === "answer_error") {
+		content = (
+			<CenterState>
+				<Ionicons name="alert-circle" size={40} color={Colors.error} />
+				<Text style={styles.errorText}>{phase.message}</Text>
+				<ActionButton
+					variant="retry"
+					onPress={() => {
+						prevIndexRef.current = null;
+						loadModules();
+					}}
+				>
+					<ActionButtonText variant="retry">Kembali ke Modul</ActionButtonText>
+				</ActionButton>
 			</CenterState>
 		);
 	} else {
@@ -524,6 +652,12 @@ const styles = StyleSheet.create({
 		gap: Spacing.sm,
 		marginBottom: Spacing.lg,
 	},
+	navigationActions: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		gap: Spacing.sm,
+		marginBottom: Spacing.md,
+	},
 	radioOption: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -565,6 +699,20 @@ const styles = StyleSheet.create({
 	},
 	radioLabelSelected: {
 		fontWeight: "600",
+	},
+	textInput: {
+		backgroundColor: Colors.surface,
+		borderRadius: Radius.lg,
+		paddingHorizontal: Spacing.md,
+		paddingVertical: 14,
+		fontSize: FontSize.md,
+		color: Colors.text,
+		minHeight: 52,
+		borderWidth: 1,
+		borderColor: Colors.border,
+	},
+	textInputReadonly: {
+		opacity: 0.7,
 	},
 	bottomAction: {
 		gap: Spacing.sm,

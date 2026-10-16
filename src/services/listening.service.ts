@@ -27,26 +27,11 @@ export const listeningService = {
 		questions: ListeningQuestion[];
 		progress: { done: number; total: number };
 	}> {
-		const response = await apiClient.post<{
+		return apiClient.post<{
 			session: ListeningSession;
 			questions: ListeningQuestion[];
 			progress: { done: number; total: number };
 		}>("/v1/listening/sessions", { module_id: moduleId }, true);
-
-		console.log(
-			"[Listening API] Questions:",
-			JSON.stringify(
-				response.questions.map((question, index) => ({
-					index,
-					id: question.id,
-					options: question.options,
-				})),
-				null,
-				2,
-			),
-		);
-
-		return response;
 	},
 
 	async getSession(sessionId: string): Promise<ListeningSession> {
@@ -78,10 +63,11 @@ export const listeningService = {
 	},
 
 	async completeSession(sessionId: string): Promise<ListeningSummary> {
-		return apiClient.post<ListeningSummary>(
-			`/v1/listening/sessions/${sessionId}/complete`,
-			{},
-			true,
-		);
+		const response = await apiClient.post<{
+			session: ListeningSession;
+			summary: ListeningSummary;
+		}>(`/v1/listening/sessions/${sessionId}/complete`, {}, true);
+
+		return response.summary;
 	},
 };

@@ -93,6 +93,7 @@ export default function LoginScreen() {
 			await auth.login(trimmedEmail, password);
 		} catch (err: unknown) {
 			const msg = (err as { message?: string })?.message;
+			console.log("🚀 ~ handleLogin ~ msg:", msg);
 			setAuthError(msg ?? "Login gagal. Periksa email dan kata sandi.");
 			setIsLoading(false);
 		}

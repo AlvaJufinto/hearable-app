@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const login = useCallback(
 		async (email: string, password: string) => {
 			const res = await authService.login(email, password);
+			console.log("🚀 ~ AuthProvider ~ res:", res);
 			setState({ isAuthenticated: true, isLoading: false, user: res.user });
 			router.replace("/(tabs)");
 		},
@@ -98,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const logout = useCallback(async () => {
 		await authService.logout();
 		setState({ isAuthenticated: false, isLoading: false, user: null });
-		router.replace("/onboarding/welcome");
+		router.replace("/welcome");
 	}, [router]);
 
 	return (

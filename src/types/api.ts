@@ -86,13 +86,10 @@ export interface ListeningSession {
 }
 
 export interface ListeningSummary {
-	session_id: string;
-	module_name: string;
-	total: number;
 	answered: number;
-	skipped: number;
 	correct: number;
-	completed_at: string;
+	skipped: number;
+	total: number;
 }
 
 export interface SpeakingModule {

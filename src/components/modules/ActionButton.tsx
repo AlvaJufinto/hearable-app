@@ -1,11 +1,10 @@
+/** @format */
+
 import React from "react";
-import {
-	TouchableOpacity,
-	Text,
-	StyleSheet,
-	ViewStyle,
-} from "react-native";
-import { Colors, FontSize, Spacing, Radius } from "@/constant/theme";
+
+import { StyleSheet, Text, TouchableOpacity, ViewStyle } from "react-native";
+
+import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
 
 type ActionButtonVariant = "primary" | "secondary" | "retry";
 
@@ -73,6 +72,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		gap: 8,
 		minHeight: 52,
+		paddingHorizontal: 24,
 	},
 	primary: {
 		backgroundColor: Colors.primary,

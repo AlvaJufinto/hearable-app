@@ -3,83 +3,124 @@
 import { useEffect } from "react";
 
 import { router } from "expo-router";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+	ActivityIndicator,
+	ScrollView,
+	StyleSheet,
+	TouchableOpacity,
+	View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Text from "@/components/ui/Text";
-import { FontSize, Radius, Spacing } from "@/constant/theme";
-import { useExerciseProgress } from "@/hooks/useExerciseProgress";
+import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
+import {
+	type ExerciseType,
+	useExerciseProgress,
+} from "@/hooks/useExerciseProgress";
 import { Ionicons } from "@expo/vector-icons";
-
-const COLORS = {
-	surface: "#EBF8FA",
-	primary: "#369FA6",
-	darkText: "#101F19",
-	textSecondary: "#3F4945",
-	white: "#FFFFFF",
-};
 
 function Header() {
 	return (
 		<View style={styles.header}>
-			<View style={styles.headerTopRow}>
-				<View style={styles.headerLeft}>
-					<TouchableOpacity
-						style={styles.backButton}
-						activeOpacity={0.8}
-						onPress={() => router.back()}
-					>
-						<Ionicons name="chevron-back" size={20} color={COLORS.darkText} />
-					</TouchableOpacity>
-					<Text style={styles.headerTitle}>Sesi Latihan</Text>
-				</View>
-				<View style={styles.headerTimeBadge}>
-					<Text style={styles.headerTime}>09:41</Text>
-				</View>
-			</View>
+			<TouchableOpacity
+				style={styles.backButton}
+				activeOpacity={0.8}
+				onPress={() => {
+					resetProgressAndGoHome();
+				}}
+				accessibilityRole="button"
+				accessibilityLabel="Kembali ke beranda"
+			>
+				<Ionicons name="chevron-back" size={20} color={Colors.text} />
+			</TouchableOpacity>
+
+			<Text style={styles.headerTitle}>Hasil Latihan</Text>
+
+			<View style={styles.headerSpacer} />
 		</View>
 	);
 }
 
-function StatPill({ value, label }: { value: string; label: string }) {
+function ScoreCard({
+	icon,
+	title,
+	score,
+	total,
+}: {
+	icon: React.ComponentProps<typeof Ionicons>["name"];
+	title: string;
+	score: number;
+	total: number;
+}) {
+	const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
 	return (
-		<View style={styles.statPill}>
-			<Text style={styles.statValue}>{value}</Text>
-			<Text style={styles.statLabel}>{label}</Text>
+		<View style={styles.scoreCard}>
+			<View style={styles.scoreCardHeader}>
+				<View style={styles.scoreIcon}>
+					<Ionicons name={icon} size={20} color={Colors.primary} />
+				</View>
+
+				<Text style={styles.scoreTitle}>{title}</Text>
+			</View>
+
+			<View style={styles.scoreValueRow}>
+				<Text style={styles.scoreValue}>{score}</Text>
+				<Text style={styles.scoreTotal}>/ {total}</Text>
+			</View>
+
+			<View style={styles.progressTrack}>
+				<View
+					style={[
+						styles.progressFill,
+						{ width: `${Math.min(100, percentage)}%` },
+					]}
+				/>
+			</View>
+
+			<Text style={styles.scoreCaption}>
+				{total > 0 ? `${percentage}% pencapaian` : "Belum ada hasil"}
+			</Text>
 		</View>
 	);
 }
 
 function CompletionSection({
-	recognitionScore,
-	recognitionTotal,
-	speakingScore,
-	speakingTotal,
+	exerciseType,
+	score,
+	total,
 }: {
-	recognitionScore: number;
-	recognitionTotal: number;
-	speakingScore: number;
-	speakingTotal: number;
+	exerciseType: ExerciseType;
+	score: number;
+	total: number;
 }) {
+	const isListening = exerciseType === "listening";
+
 	return (
 		<View style={styles.completionSection}>
-			<Text style={styles.sectionTitle}>Sesi Selesai!</Text>
-			<View style={styles.iconCircle}>
-				<Ionicons name="checkmark" size={29} color={COLORS.white} />
+			<View style={styles.successCircle}>
+				<Ionicons name="checkmark-circle" size={46} color={Colors.primary} />
 			</View>
-			<View style={styles.statsRow}>
-				<StatPill
-					value={`${recognitionScore} dari ${recognitionTotal}`}
-					label="Soal Diselesaikan"
-				/>
-				<StatPill
-					value={`${speakingScore} dari ${speakingTotal}`}
-					label="Pelafalan"
-				/>
-			</View>
+
+			<Text style={styles.eyebrow}>LATIHAN SELESAI</Text>
+
+			<Text style={styles.completionTitle}>Kerja bagus!</Text>
+
 			<Text style={styles.descriptionText}>
-				Kamu telah menyelesaikan latihan pengenalan audio dan bicara hari ini.
+				{isListening
+					? "Kamu sudah menyelesaikan latihan pengenalan audio. Terus berlatih untuk meningkatkan kemampuan menyimakmu."
+					: "Kamu sudah menyelesaikan latihan pelafalan. Terus berlatih untuk meningkatkan kemampuan berbicaramu."}
 			</Text>
+
+			<View style={styles.scoreList}>
+				<ScoreCard
+					icon={isListening ? "ear-outline" : "mic-outline"}
+					title={isListening ? "Pengenalan Audio" : "Pelafalan"}
+					score={score}
+					total={total}
+				/>
+			</View>
 		</View>
 	);
 }
@@ -90,41 +131,69 @@ function ActionButtons({ onRetry }: { onRetry: () => void }) {
 			<TouchableOpacity
 				style={styles.primaryButton}
 				activeOpacity={0.8}
-				onPress={() => router.replace("/(tabs)")}
+				onPress={resetProgressAndGoHome}
+				accessibilityRole="button"
 			>
-				<Text style={styles.primaryButtonText}>Lanjut ke Beranda</Text>
-				<Ionicons name="arrow-forward" size={13} color={COLORS.white} />
+				<Text style={styles.primaryButtonText}>Kembali ke Beranda</Text>
+				<Ionicons name="arrow-forward" size={18} color={Colors.surface} />
 			</TouchableOpacity>
+
 			<TouchableOpacity
 				style={styles.secondaryButton}
 				activeOpacity={0.8}
 				onPress={onRetry}
+				accessibilityRole="button"
 			>
-				<Ionicons name="refresh" size={13} color={COLORS.primary} />
+				<Ionicons name="refresh-outline" size={18} color={Colors.primary} />
 				<Text style={styles.secondaryButtonText}>Coba Latihan Lagi</Text>
 			</TouchableOpacity>
 		</View>
 	);
 }
 
+function resetProgressAndGoHome() {
+	router.replace("/(tabs)");
+}
+
 export default function CompletionScreen() {
 	const { state, reset } = useExerciseProgress();
 
 	useEffect(() => {
-		if (!state.recognitionDone && !state.speakingDone) {
-			router.replace("/recognition");
+		if (!state.exerciseType) {
+			router.replace("/(tabs)");
 		}
-	}, [state]);
+	}, [state.exerciseType]);
 
 	const handleRetry = () => {
+		const exerciseType = state.exerciseType;
+
+		if (!exerciseType) {
+			router.replace("/(tabs)");
+			return;
+		}
+
 		reset();
-		router.replace("/recognition");
+
+		if (exerciseType === "listening") {
+			router.replace("/recognition");
+			return;
+		}
+
+		router.replace("/speaking");
 	};
 
-	const recognitionScore = state.recognitionScore;
-	const recognitionTotal = state.recognitionTotal;
-	const speakingScore = state.speakingScore;
-	const speakingTotal = state.speakingTotal;
+	if (!state.exerciseType) {
+		return (
+			<SafeAreaView style={styles.loadingContainer}>
+				<ActivityIndicator size="large" color={Colors.primary} />
+			</SafeAreaView>
+		);
+	}
+
+	const isListening = state.exerciseType === "listening";
+
+	const score = isListening ? state.recognitionScore : state.speakingScore;
+	const total = isListening ? state.recognitionTotal : state.speakingTotal;
 
 	return (
 		<SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -134,17 +203,15 @@ export default function CompletionScreen() {
 				showsVerticalScrollIndicator={false}
 			>
 				<Header />
-				<View style={styles.card}>
-					<View style={styles.badgeRow}>
-						<Text style={styles.badgeText}>Hasil Latihan</Text>
-					</View>
+
+				<View style={styles.heroCard}>
 					<CompletionSection
-						recognitionScore={recognitionScore}
-						recognitionTotal={recognitionTotal}
-						speakingScore={speakingScore}
-						speakingTotal={speakingTotal}
+						exerciseType={state.exerciseType}
+						score={score}
+						total={total}
 					/>
 				</View>
+
 				<ActionButtons onRetry={handleRetry} />
 			</ScrollView>
 		</SafeAreaView>
@@ -152,141 +219,186 @@ export default function CompletionScreen() {
 }
 
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: COLORS.surface },
-	scrollView: { flex: 1 },
-	scrollContent: { paddingHorizontal: Spacing.lg },
-	header: {
-		paddingTop: Spacing.md,
-		paddingBottom: Spacing.sm,
+	safeArea: {
+		flex: 1,
+		backgroundColor: Colors.background,
 	},
-	headerTopRow: {
+	loadingContainer: {
+		flex: 1,
+		alignItems: "center",
+		justifyContent: "center",
+		backgroundColor: Colors.background,
+	},
+	scrollView: {
+		flex: 1,
+	},
+	scrollContent: {
+		flexGrow: 1,
+		paddingHorizontal: Spacing.lg,
+		paddingTop: Spacing.sm,
+		paddingBottom: Spacing.xl,
+	},
+	header: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-	},
-	headerLeft: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 4,
+		marginBottom: Spacing.lg,
+		minHeight: 44,
 	},
 	backButton: {
-		padding: 4,
+		width: 40,
+		height: 40,
+		borderRadius: Radius.md,
+		backgroundColor: Colors.surface,
+		alignItems: "center",
+		justifyContent: "center",
 	},
 	headerTitle: {
-		fontSize: FontSize.md,
+		fontSize: FontSize.lg,
 		fontWeight: "700",
-		color: COLORS.darkText,
+		color: Colors.text,
 	},
-	headerTimeBadge: {
-		backgroundColor: COLORS.primary,
-		paddingHorizontal: 10,
-		paddingVertical: 4,
-		borderRadius: Radius.full,
+	headerSpacer: {
+		width: 40,
 	},
-	headerTime: {
-		fontSize: FontSize.xs,
-		fontWeight: "600",
-		color: COLORS.white,
-	},
-	card: {
-		backgroundColor: COLORS.white,
-		borderRadius: Radius.md,
+	heroCard: {
+		backgroundColor: Colors.surface,
+		borderRadius: Radius.xl,
 		padding: Spacing.lg,
+		borderWidth: 1,
+		borderColor: Colors.border,
 		marginBottom: Spacing.lg,
-	},
-	badgeRow: {
-		marginBottom: Spacing.lg,
-	},
-	badgeText: {
-		fontSize: FontSize.sm,
-		fontWeight: "600",
-		color: COLORS.darkText,
 	},
 	completionSection: {
 		alignItems: "center",
 	},
-	sectionTitle: {
-		fontSize: FontSize.lg,
-		fontWeight: "600",
-		color: COLORS.darkText,
-		marginBottom: Spacing.md,
-	},
-	iconCircle: {
-		width: 80,
-		height: 80,
-		borderRadius: 40,
-		backgroundColor: COLORS.primary,
+	successCircle: {
+		width: 84,
+		height: 84,
+		borderRadius: 42,
+		backgroundColor: Colors.secondary + "44",
 		alignItems: "center",
 		justifyContent: "center",
-		marginBottom: Spacing.lg,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.04,
-		shadowRadius: 2,
-		elevation: 1,
-	},
-	statsRow: {
-		flexDirection: "row",
-		gap: Spacing.md,
 		marginBottom: Spacing.md,
 	},
-	statPill: {
-		flex: 1,
-		backgroundColor: COLORS.surface,
-		borderRadius: Radius.sm,
-		padding: Spacing.md,
-		alignItems: "center",
-	},
-	statValue: {
-		fontSize: 20,
-		fontWeight: "700",
-		color: COLORS.primary,
-		marginBottom: 2,
-	},
-	statLabel: {
+	eyebrow: {
 		fontSize: FontSize.xs,
-		fontWeight: "500",
-		color: COLORS.textSecondary,
+		fontWeight: "700",
+		letterSpacing: 1.5,
+		color: Colors.primary,
+		marginBottom: Spacing.xs,
+	},
+	completionTitle: {
+		fontSize: FontSize.xl,
+		fontWeight: "700",
+		color: Colors.text,
 		textAlign: "center",
+		marginBottom: Spacing.sm,
 	},
 	descriptionText: {
 		fontSize: FontSize.sm,
-		fontWeight: "400",
-		color: COLORS.textSecondary,
+		color: Colors.textSecondary,
 		textAlign: "center",
 		lineHeight: 22,
+		marginBottom: Spacing.xl,
+	},
+	scoreList: {
+		width: "100%",
+		gap: Spacing.md,
+	},
+	scoreCard: {
+		backgroundColor: Colors.background,
+		borderRadius: Radius.lg,
+		padding: Spacing.md,
+		borderWidth: 1,
+		borderColor: Colors.border,
+	},
+	scoreCardHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: Spacing.sm,
+		marginBottom: Spacing.md,
+	},
+	scoreIcon: {
+		width: 36,
+		height: 36,
+		borderRadius: Radius.md,
+		backgroundColor: Colors.secondary + "55",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	scoreTitle: {
+		flex: 1,
+		fontSize: FontSize.md,
+		fontWeight: "600",
+		color: Colors.text,
+	},
+	scoreValueRow: {
+		flexDirection: "row",
+		alignItems: "baseline",
+		gap: 5,
+		marginBottom: Spacing.sm,
+	},
+	scoreValue: {
+		fontSize: 30,
+		fontWeight: "700",
+		color: Colors.primary,
+	},
+	scoreTotal: {
+		fontSize: FontSize.md,
+		color: Colors.textSecondary,
+	},
+	progressTrack: {
+		height: 7,
+		borderRadius: Radius.full,
+		backgroundColor: Colors.border,
+		overflow: "hidden",
+	},
+	progressFill: {
+		height: "100%",
+		borderRadius: Radius.full,
+		backgroundColor: Colors.primary,
+	},
+	scoreCaption: {
+		fontSize: FontSize.xs,
+		color: Colors.textSecondary,
+		marginTop: Spacing.sm,
 	},
 	actionButtons: {
 		gap: Spacing.sm,
 	},
 	primaryButton: {
+		minHeight: 52,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		gap: 8,
-		backgroundColor: COLORS.primary,
+		gap: Spacing.sm,
+		backgroundColor: Colors.primary,
 		paddingVertical: Spacing.md,
-		borderRadius: Radius.md,
+		paddingHorizontal: Spacing.lg,
+		borderRadius: Radius.lg,
 	},
 	primaryButtonText: {
 		fontSize: FontSize.md,
 		fontWeight: "600",
-		color: COLORS.white,
+		color: Colors.surface,
 	},
 	secondaryButton: {
+		minHeight: 52,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		gap: 6,
-		backgroundColor: COLORS.white,
+		gap: Spacing.sm,
+		backgroundColor: Colors.surface,
 		paddingVertical: Spacing.md,
-		borderRadius: Radius.md,
-		borderWidth: 1.5,
-		borderColor: COLORS.primary,
+		paddingHorizontal: Spacing.lg,
+		borderRadius: Radius.lg,
+		borderWidth: 1,
+		borderColor: Colors.primary,
 	},
 	secondaryButtonText: {
 		fontSize: FontSize.md,
 		fontWeight: "600",
-		color: COLORS.primary,
+		color: Colors.primary,
 	},
 });
