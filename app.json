@@ -42,7 +42,17 @@
 				}
 			],
 			"expo-font",
-			"expo-audio"
+			"expo-audio",
+			[
+				"expo-speech-recognition",
+				{
+					"microphonePermission": "HearAble memerlukan akses mikrofon untuk latihan berbicara.",
+					"speechRecognitionPermission": "HearAble memerlukan izin pengenalan ucapan.",
+					"androidSpeechServicePackages": [
+						"com.google.android.googlequicksearchbox"
+					]
+				}
+			]
 		],
 		"experiments": {
 			"typedRoutes": true,

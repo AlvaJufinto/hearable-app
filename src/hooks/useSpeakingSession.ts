@@ -1,8 +1,9 @@
 /** @format */
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
+
 import { speakingService } from "@/services/speaking.service";
-import type { SpeakingModule, Sentence } from "@/types/api";
+import type { Sentence, SpeakingModule } from "@/types/api";
 
 type SessionPhase =
 	| { status: "idle" }
@@ -18,7 +19,12 @@ type SessionPhase =
 			sentences: Sentence[];
 			attempts: Map<
 				string,
-				{ transcript?: string; score?: number; clarity?: number; completeness?: number }
+				{
+					transcript?: string;
+					score?: number;
+					clarity?: number;
+					completeness?: number;
+				}
 			>;
 	  }
 	| { status: "submitting" }
@@ -49,7 +55,8 @@ export function useSpeakingSession() {
 	const startSession = useCallback(async (moduleId: string) => {
 		setPhase({ status: "starting_session" });
 		try {
-			const { session, sentences, progress } = await speakingService.startSession(moduleId);
+			const { session, sentences, progress } =
+				await speakingService.startSession(moduleId);
 			setPhase({
 				status: "active",
 				sessionId: session.id,
@@ -66,26 +73,41 @@ export function useSpeakingSession() {
 	}, []);
 
 	const submitAttempt = useCallback(
-		async (sentenceId: string, audioUri: string) => {
+		async (sentenceId: string, transcript: string) => {
 			const current = phase;
+
 			if (current.status !== "active") return;
 
+			const normalizedTranscript = transcript.trim();
+
+			if (!normalizedTranscript) {
+				setPhase({
+					status: "answer_error",
+					message: "Transkrip ucapan kosong. Silakan coba lagi.",
+				});
+				return;
+			}
+
 			setPhase({ status: "submitting" });
+
 			try {
 				const result = await speakingService.submitAttempt(
 					current.sessionId,
 					sentenceId,
-					audioUri
+					transcript,
 				);
 				const newAttempts = new Map(current.attempts);
 				newAttempts.set(sentenceId, result);
 
 				const nextIndex = current.currentIndex + 1;
+
 				if (nextIndex >= current.sentences.length) {
 					setPhase({ status: "completing" });
+
 					const summary = await speakingService.completeSession(
-						current.sessionId
+						current.sessionId,
 					);
+
 					setPhase({
 						status: "done",
 						sessionId: current.sessionId,
@@ -101,11 +123,14 @@ export function useSpeakingSession() {
 				}
 			} catch (err: unknown) {
 				const message =
-					(err as { message?: string })?.message ?? "Gagal mengirim rekaman";
+					err instanceof Error
+						? err.message
+						: "Gagal mengirim hasil transkripsi.";
+
 				setPhase({ status: "answer_error", message });
 			}
 		},
-		[phase]
+		[phase],
 	);
 
 	const skipSentence = useCallback(
@@ -123,7 +148,7 @@ export function useSpeakingSession() {
 				if (nextIndex >= current.sentences.length) {
 					setPhase({ status: "completing" });
 					const summary = await speakingService.completeSession(
-						current.sessionId
+						current.sessionId,
 					);
 					setPhase({
 						status: "done",
@@ -144,12 +169,19 @@ export function useSpeakingSession() {
 				setPhase({ status: "answer_error", message });
 			}
 		},
-		[phase]
+		[phase],
 	);
 
 	const reset = useCallback(() => {
 		setPhase({ status: "idle" });
 	}, []);
 
-	return { phase, loadModules, startSession, submitAttempt, skipSentence, reset };
+	return {
+		phase,
+		loadModules,
+		startSession,
+		submitAttempt,
+		skipSentence,
+		reset,
+	};
 }

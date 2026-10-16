@@ -1,7 +1,6 @@
 /** @format */
 
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { router } from "expo-router";
 import {
@@ -13,462 +12,639 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-	ActionButton,
-	ActionButtonText,
-	AudioVisualizer,
-	BadgeRow,
-	CenterState,
-	ModuleCard as SharedModuleCard,
-	ProgressBar,
-} from "@/components/modules";
 import Text from "@/components/ui/Text";
-import { Colors, FontSize, Radius, Spacing } from "@/constant/theme";
-import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useExerciseProgress } from "@/hooks/useExerciseProgress";
 import { useSpeakingSession } from "@/hooks/useSpeakingSession";
-import type { Sentence } from "@/types/api";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
+import type { Sentence, SpeakingModule } from "@/types/api";
 import { Ionicons } from "@expo/vector-icons";
 
-const WAVEFORM_BARS = [8, 12, 8, 16, 8, 12, 8];
+const COLORS = {
+	background: "#F6FAFA",
+	surface: "#FFFFFF",
+	primary: "#369FA6",
+	primaryLight: "#E6F5F5",
+	secondary: "#89D1D9",
+	text: "#243638",
+	muted: "#718184",
+	border: "#DCE8E8",
+	success: "#27866F",
+	successLight: "#E8F6F0",
+	warning: "#FCE289",
+	danger: "#C24141",
+	dangerLight: "#FDECEC",
+};
 
-function SyllableBox({
-	syllable,
-	stressed = false,
+function getObjectValue(source: unknown, keys: string[]): unknown {
+	if (!source || typeof source !== "object") {
+		return undefined;
+	}
+
+	const object = source as Record<string, unknown>;
+
+	for (const key of keys) {
+		const value = object[key];
+
+		if (value !== undefined && value !== null) {
+			return value;
+		}
+	}
+
+	return undefined;
+}
+
+function getDisplayText(
+	source: unknown,
+	keys: string[],
+	fallback: string,
+): string {
+	const value = getObjectValue(source, keys);
+
+	if (typeof value === "string" && value.trim()) {
+		return value;
+	}
+
+	if (typeof value === "number") {
+		return String(value);
+	}
+
+	return fallback;
+}
+
+function getSentenceGuide(sentence: Sentence): string | null {
+	const guide = getObjectValue(sentence, [
+		"syllables",
+		"syllable_guide",
+		"syllableGuide",
+		"pronunciation_guide",
+		"pronunciationGuide",
+	]);
+
+	if (typeof guide === "string" && guide.trim()) {
+		return guide;
+	}
+
+	if (Array.isArray(guide)) {
+		const parts = guide
+			.map((item) => {
+				if (typeof item === "string") {
+					return item;
+				}
+
+				return getDisplayText(item, ["text", "syllable", "value"], "");
+			})
+			.filter(Boolean);
+
+		return parts.length > 0 ? parts.join(" · ") : null;
+	}
+
+	return null;
+}
+
+function PrimaryButton({
+	label,
+	icon,
+	onPress,
+	disabled = false,
+	loading = false,
 }: {
-	syllable: string;
-	stressed?: boolean;
+	label: string;
+	icon: React.ComponentProps<typeof Ionicons>["name"];
+	onPress: () => void;
+	disabled?: boolean;
+	loading?: boolean;
 }) {
 	return (
-		<View
+		<TouchableOpacity
+			activeOpacity={0.8}
+			disabled={disabled || loading}
+			onPress={onPress}
 			style={[
-				styles.syllableBox,
-				stressed ? styles.syllableBoxHighlighted : styles.syllableBoxNormal,
+				styles.primaryButton,
+				(disabled || loading) && styles.disabledButton,
 			]}
 		>
-			<Text
-				style={[
-					styles.syllableText,
-					stressed && styles.syllableTextHighlighted,
-				]}
-			>
-				{syllable}
-			</Text>
+			{loading ? (
+				<ActivityIndicator color="#FFFFFF" />
+			) : (
+				<Ionicons name={icon} size={20} color="#FFFFFF" />
+			)}
 
-			{stressed && <View style={styles.stressIndicator} />}
-		</View>
-	);
-}
-
-function WordBreak() {
-	return (
-		<View style={styles.wordBreak} accessibilityLabel="Jeda antar kata">
-			<View style={styles.wordBreakLine} />
-		</View>
-	);
-}
-
-function SentenceCard({
-	sentence,
-}: {
-	sentence: Sentence;
-	currentIndex: number;
-	total: number;
-	hasRecording: boolean;
-}) {
-	return (
-		<View style={styles.wordCard}>
-			<Text style={styles.mainWord}>{sentence.text}</Text>
-
-			<Text style={styles.syllableGuideLabel}>
-				Panduan ketukan ritme suku kata
-			</Text>
-
-			<View style={styles.syllableRow}>
-				{(sentence.syllables ?? []).map((syl, i) => {
-					if (syl.break) {
-						return <WordBreak key={`break-${i}`} />;
-					}
-
-					if (!syl.text) {
-						return null;
-					}
-
-					return (
-						<SyllableBox
-							key={`syllable-${i}`}
-							syllable={syl.text}
-							stressed={Boolean(syl.stress)}
-						/>
-					);
-				})}
-			</View>
-
-			<View style={styles.stressLegend}>
-				<View style={styles.stressLegendDot} />
-				<Text style={styles.stressLegendText}>
-					Suku kata berwarna menunjukkan penekanan
-				</Text>
-			</View>
-
-			<TouchableOpacity
-				style={styles.playAudioButton}
-				activeOpacity={0.8}
-				accessibilityRole="button"
-				accessibilityLabel="Dengarkan contoh suara"
-			>
-				<Ionicons name="play-circle" size={22} color={Colors.primary} />
-				<Text style={styles.playAudioText}>Dengarkan contoh suara</Text>
-			</TouchableOpacity>
-
-			<AudioVisualizer variant="wave" heights={WAVEFORM_BARS} />
-		</View>
-	);
-}
-
-function RecordingZone({
-	isRecording,
-	hasRecording,
-	duration,
-	metering,
-	onStartRecording,
-}: {
-	isRecording: boolean;
-	hasRecording: boolean;
-	duration: number;
-	metering: number | null;
-	onStartRecording: () => void;
-}) {
-	const formatTime = (ms: number) => {
-		const totalSec = Math.floor(ms / 1000);
-		const min = Math.floor(totalSec / 60);
-		const sec = totalSec % 60;
-
-		return `${min.toString().padStart(2, "0")}:${sec
-			.toString()
-			.padStart(2, "0")}`;
-	};
-
-	const normalizedMetering =
-		metering !== null ? Math.max(0, Math.min(1, (metering + 60) / 60)) : 0.3;
-
-	return (
-		<View style={styles.recordingZone}>
-			<View style={styles.timerRow}>
-				<Text style={styles.timerText}>{formatTime(duration)}</Text>
-
-				<Text style={styles.timerHint}>
-					{hasRecording
-						? "Rekaman siap dikirim"
-						: isRecording
-							? "Ketuk STOP jika selesai merekam"
-							: "Ketuk untuk mulai merekam"}
-				</Text>
-			</View>
-
-			<View style={styles.liveWaveRow}>
-				{WAVEFORM_BARS.map((baseHeight, i) => {
-					const scaledHeight = isRecording
-						? Math.max(
-								4,
-								baseHeight * (0.4 + normalizedMetering * 0.8 + (i % 2) * 0.2),
-							)
-						: baseHeight * 0.5;
-
-					return (
-						<View
-							key={i}
-							style={[
-								styles.liveWaveBar,
-								{
-									height: scaledHeight,
-									opacity: isRecording ? 1 : 0.3,
-								},
-							]}
-						/>
-					);
-				})}
-			</View>
-
-			<View style={styles.recordButtonArea}>
-				<View style={styles.recordShadowRing} />
-
-				<TouchableOpacity
-					style={[
-						styles.recordButton,
-						isRecording && styles.recordButtonRecording,
-					]}
-					activeOpacity={0.8}
-					onPress={onStartRecording}
-					accessibilityRole="button"
-					accessibilityLabel={
-						isRecording ? "Berhenti merekam" : "Mulai merekam"
-					}
-				>
-					<Ionicons
-						name={isRecording ? "stop" : "mic"}
-						size={21}
-						color={Colors.surface}
-					/>
-
-					<Text style={styles.recordButtonText}>
-						{isRecording ? "STOP" : "REKAM"}
-					</Text>
-				</TouchableOpacity>
-			</View>
-		</View>
+			<Text style={styles.primaryButtonText}>{label}</Text>
+		</TouchableOpacity>
 	);
 }
 
 export default function SpeakingScreen() {
-	const { phase, loadModules, startSession, submitAttempt, skipSentence } =
-		useSpeakingSession();
+	const {
+		phase,
+		loadModules,
+		startSession,
+		submitAttempt,
+		skipSentence,
+		reset,
+	} = useSpeakingSession();
+
+	const {
+		transcript,
+		isListening,
+		isFinal,
+		error: speechError,
+		startListening,
+		stopListening,
+		resetTranscript,
+	} = useSpeechToText();
 
 	const { setSpeakingDone } = useExerciseProgress();
-	const recorder = useAudioRecorder();
 
-	const [hasRecording, setHasRecording] = useState(false);
-	const [recordingUri, setRecordingUri] = useState<string | null>(null);
-
-	const prevIndexRef = useRef<number | null>(null);
+	const completionHandled = useRef(false);
 
 	useEffect(() => {
-		if (phase.status === "idle") {
-			loadModules();
-		}
-	}, [phase.status, loadModules]);
+		void loadModules();
+	}, [loadModules]);
 
 	useEffect(() => {
-		if (phase.status === "done") {
-			setSpeakingDone(1, phase.totalSentences);
-			router.push("/completion");
+		if (phase.status === "active") {
+			resetTranscript();
 		}
+	}, [
+		phase.status,
+		phase.status === "active" ? phase.currentIndex : -1,
+		resetTranscript,
+	]);
+
+	useEffect(() => {
+		if (phase.status !== "done" || completionHandled.current) {
+			return;
+		}
+
+		completionHandled.current = true;
+
+		setSpeakingDone(1, phase.totalSentences);
+		router.push("/completion");
 	}, [phase, setSpeakingDone]);
 
-	const currentIndex = phase.status === "active" ? phase.currentIndex : null;
+	const handleStartSession = useCallback(
+		async (moduleId: string) => {
+			completionHandled.current = false;
+			resetTranscript();
+			await startSession(moduleId);
+		},
+		[startSession, resetTranscript],
+	);
 
-	useEffect(() => {
-		if (currentIndex !== prevIndexRef.current) {
-			prevIndexRef.current = currentIndex;
-
-			if (recorder.isRecording) {
-				void recorder.stopRecording();
-			}
-
-			setHasRecording(false);
-			setRecordingUri(null);
+	const handleToggleListening = useCallback(async () => {
+		if (isListening) {
+			stopListening();
+			return;
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentIndex]);
 
-	const handleStartRecording = async () => {
-		if (recorder.isRecording) {
-			const uri = await recorder.stopRecording();
-			setRecordingUri(uri);
-			setHasRecording(Boolean(uri));
-		} else {
-			await recorder.startRecording();
+		resetTranscript();
+		await startListening();
+	}, [isListening, resetTranscript, startListening, stopListening]);
+
+	const handleSubmit = useCallback(async () => {
+		if (phase.status !== "active") {
+			return;
 		}
-	};
 
-	const handleSubmit = () => {
-		if (phase.status !== "active" || !hasRecording) {
+		if (isListening || !isFinal || !transcript.trim()) {
 			return;
 		}
 
 		const sentence = phase.sentences[phase.currentIndex];
-		const uri = recordingUri ?? "file:///tmp/mock-recording.m4a";
 
-		submitAttempt(sentence.id, uri);
-	};
+		if (!sentence) {
+			return;
+		}
 
-	const handleSkip = () => {
+		await submitAttempt(sentence.id, transcript.trim());
+	}, [phase, isListening, isFinal, transcript, submitAttempt]);
+
+	const handleSkip = useCallback(async () => {
 		if (phase.status !== "active") {
 			return;
 		}
 
 		const sentence = phase.sentences[phase.currentIndex];
-		skipSentence(sentence.id);
-	};
 
-	const activePhase = phase;
-	let content: ReactNode;
+		if (!sentence) {
+			return;
+		}
 
-	if (
-		activePhase.status === "idle" ||
-		activePhase.status === "loading_modules"
-	) {
-		content = (
-			<CenterState>
-				<ActivityIndicator size="large" color={Colors.primary} />
-				<Text style={styles.stateText}>Memuat modul...</Text>
-			</CenterState>
+		if (isListening) {
+			stopListening();
+		}
+
+		await skipSentence(sentence.id);
+	}, [phase, isListening, stopListening, skipSentence]);
+
+	const handleBackToModules = useCallback(() => {
+		if (isListening) {
+			stopListening();
+		}
+
+		resetTranscript();
+		reset();
+		void loadModules();
+	}, [isListening, stopListening, resetTranscript, reset, loadModules]);
+
+	const renderHeader = (subtitle: string) => (
+		<View style={styles.header}>
+			<TouchableOpacity
+				activeOpacity={0.7}
+				onPress={() => {
+					if (isListening) {
+						stopListening();
+					}
+
+					router.back();
+				}}
+				style={styles.backButton}
+			>
+				<Ionicons name="chevron-back" size={24} color={COLORS.text} />
+			</TouchableOpacity>
+
+			<View style={styles.headerTextContainer}>
+				<Text style={styles.headerTitle}>Latihan Berbicara</Text>
+
+				<Text style={styles.headerSubtitle}>{subtitle}</Text>
+			</View>
+		</View>
+	);
+
+	const renderLoading = (message: string) => (
+		<View style={styles.centerContainer}>
+			<ActivityIndicator size="large" color={COLORS.primary} />
+
+			<Text style={styles.loadingText}>{message}</Text>
+		</View>
+	);
+
+	const renderError = (title: string, message: string, onRetry: () => void) => (
+		<View style={styles.centerContainer}>
+			<View style={styles.errorIconContainer}>
+				<Ionicons name="alert-circle-outline" size={36} color={COLORS.danger} />
+			</View>
+
+			<Text style={styles.emptyTitle}>{title}</Text>
+
+			<Text style={styles.emptyDescription}>{message}</Text>
+
+			<PrimaryButton
+				label="Coba Lagi"
+				icon="refresh-outline"
+				onPress={onRetry}
+			/>
+		</View>
+	);
+
+	const renderModuleList = (modules: SpeakingModule[]) => (
+		<ScrollView
+			showsVerticalScrollIndicator={false}
+			contentContainerStyle={styles.scrollContent}
+		>
+			<View style={styles.introCard}>
+				<View style={styles.introIcon}>
+					<Ionicons name="mic-outline" size={30} color={COLORS.primary} />
+				</View>
+
+				<Text style={styles.introTitle}>Ayo berlatih berbicara!</Text>
+
+				<Text style={styles.introDescription}>
+					Pilih modul, ucapkan kalimat yang ditampilkan, lalu periksa hasil
+					transkripsi ucapanmu.
+				</Text>
+			</View>
+
+			<Text style={styles.sectionTitle}>Pilih Modul</Text>
+
+			{modules.length === 0 ? (
+				<View style={styles.emptyCard}>
+					<Ionicons name="book-outline" size={32} color={COLORS.muted} />
+
+					<Text style={styles.emptyTitle}>Belum ada modul</Text>
+
+					<Text style={styles.emptyDescription}>
+						Modul latihan belum tersedia saat ini.
+					</Text>
+
+					<PrimaryButton
+						label="Muat Ulang"
+						icon="refresh-outline"
+						onPress={() => void loadModules()}
+					/>
+				</View>
+			) : (
+				modules.map((module, index) => {
+					const title = getDisplayText(
+						module,
+						["title", "name", "module_name", "moduleName"],
+						`Modul ${index + 1}`,
+					);
+
+					const description = getDisplayText(
+						module,
+						["description"],
+						"Latihan pengucapan Bahasa Indonesia.",
+					);
+
+					const difficulty = getDisplayText(
+						module,
+						["difficulty_label", "difficultyLabel"],
+						"Latihan",
+					);
+
+					return (
+						<TouchableOpacity
+							key={module.id}
+							activeOpacity={0.8}
+							onPress={() => void handleStartSession(module.id)}
+							style={styles.moduleCard}
+						>
+							<View style={styles.moduleIcon}>
+								<Ionicons
+									name="chatbubble-ellipses-outline"
+									size={24}
+									color={COLORS.primary}
+								/>
+							</View>
+
+							<View style={styles.moduleInfo}>
+								<Text style={styles.moduleTitle}>{title}</Text>
+
+								<Text style={styles.moduleDescription}>{description}</Text>
+
+								<View style={styles.difficultyBadge}>
+									<Text style={styles.difficultyText}>{difficulty}</Text>
+								</View>
+							</View>
+
+							<Ionicons name="chevron-forward" size={22} color={COLORS.muted} />
+						</TouchableOpacity>
+					);
+				})
+			)}
+		</ScrollView>
+	);
+
+	const renderActiveSession = (
+		sentence: Sentence,
+		currentIndex: number,
+		total: number,
+	) => {
+		const sentenceText = getDisplayText(
+			sentence,
+			[
+				"text",
+				"sentence",
+				"content",
+				"phrase",
+				"target_text",
+				"targetText",
+				"word",
+			],
+			"Kalimat latihan",
 		);
-	} else if (activePhase.status === "modules_error") {
-		content = (
-			<CenterState>
-				<Ionicons name="alert-circle" size={40} color={Colors.error} />
-				<Text style={styles.errorText}>{activePhase.message}</Text>
 
-				<ActionButton variant="retry" onPress={loadModules}>
-					<ActionButtonText variant="retry">Coba Lagi</ActionButtonText>
-				</ActionButton>
-			</CenterState>
-		);
-	} else if (activePhase.status === "answer_error") {
-		content = (
-			<CenterState>
-				<Ionicons name="alert-circle" size={40} color={Colors.error} />
-				<Text style={styles.errorText}>{activePhase.message}</Text>
+		const guide = getSentenceGuide(sentence);
+		const progress =
+			total > 0 ? Math.min(((currentIndex + 1) / total) * 100, 100) : 0;
 
-				<ActionButton
-					variant="retry"
-					onPress={() => {
-						if (phase.status === "active") {
-							const sentence = phase.sentences[phase.currentIndex];
+		const canSubmit = transcript.trim().length > 0 && isFinal && !isListening;
 
-							skipSentence(sentence.id);
-						}
-					}}
-				>
-					<ActionButtonText variant="retry">Coba Lagi</ActionButtonText>
-				</ActionButton>
-			</CenterState>
-		);
-	} else if (activePhase.status === "module_list") {
-		content = (
-			<View style={styles.moduleListSection}>
-				<View style={styles.moduleListHeader}>
-					<View style={styles.moduleListHeading}>
-						<Text style={styles.sectionTitle}>Pilih Modul</Text>
-						<Text style={styles.sectionSubtitle}>
-							Pilih latihan sesuai kemampuanmu
+		return (
+			<ScrollView
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={styles.scrollContent}
+			>
+				<View style={styles.progressSection}>
+					<View style={styles.progressLabels}>
+						<Text style={styles.progressLabel}>
+							Kalimat {currentIndex + 1} dari {total}
+						</Text>
+
+						<Text style={styles.progressPercentage}>
+							{Math.round(progress)}%
 						</Text>
 					</View>
 
-					<View style={styles.moduleCountBadge}>
-						<Text style={styles.moduleCountText}>
-							{activePhase.modules.length} modul
-						</Text>
+					<View style={styles.progressTrack}>
+						<View style={[styles.progressFill, { width: `${progress}%` }]} />
 					</View>
 				</View>
 
-				{activePhase.modules.map((module) => (
-					<SharedModuleCard
-						key={module.id}
-						title={module.title ?? module.label}
-						description={module.description}
-						meta={[
-							{
-								icon: "document-text-outline",
-								label: `${module.sentence_count} kalimat`,
-							},
-							{
-								icon: "time-outline",
-								label: `${module.estimated_minutes} menit`,
-							},
-						]}
-						difficulty={module.difficulty}
-						onPress={() => startSession(module.id)}
-					/>
-				))}
-			</View>
-		);
-	} else if (
-		activePhase.status === "starting_session" ||
-		activePhase.status === "submitting" ||
-		activePhase.status === "completing"
-	) {
-		content = (
-			<CenterState>
-				<ActivityIndicator size="large" color={Colors.primary} />
-				<Text style={styles.stateText}>
-					{activePhase.status === "completing"
-						? "Menyelesaikan sesi..."
-						: activePhase.status === "starting_session"
-							? "Memulai sesi..."
-							: "Mengirim rekaman..."}
-				</Text>
-			</CenterState>
-		);
-	} else if (activePhase.status === "active") {
-		const active = activePhase;
-		const sentence: Sentence = active.sentences[active.currentIndex];
+				<View style={styles.sentenceCard}>
+					<View style={styles.sentenceLabelRow}>
+						<Ionicons
+							name="chatbox-ellipses-outline"
+							size={18}
+							color={COLORS.primary}
+						/>
 
-		const progress =
-			active.total > 0 ? (active.currentIndex + 1) / active.total : 0;
+						<Text style={styles.sentenceLabel}>UCAPKAN KALIMAT INI</Text>
+					</View>
 
-		content = (
-			<>
-				<BadgeRow
-					label="Latihan Bicara"
-					progressText={`${active.currentIndex + 1} dari ${active.total}`}
-					paddingTop={16}
-				/>
+					<Text style={styles.sentenceText}>{sentenceText}</Text>
 
-				<ProgressBar progress={progress} />
+					{guide ? (
+						<View style={styles.guideContainer}>
+							<Text style={styles.guideLabel}>Panduan pengucapan</Text>
 
-				<SentenceCard
-					sentence={sentence}
-					currentIndex={active.currentIndex}
-					total={active.total}
-					hasRecording={hasRecording}
-				/>
+							<Text style={styles.guideText}>{guide}</Text>
+						</View>
+					) : null}
+				</View>
 
-				<RecordingZone
-					isRecording={recorder.isRecording}
-					hasRecording={hasRecording}
-					duration={recorder.duration}
-					metering={recorder.metering}
-					onStartRecording={handleStartRecording}
-				/>
+				<View style={styles.recordingCard}>
+					<View style={styles.recordingHeader}>
+						<View style={styles.recordingIcon}>
+							<Ionicons
+								name={isListening ? "radio-outline" : "mic-outline"}
+								size={23}
+								color={COLORS.primary}
+							/>
+						</View>
 
-				<View style={styles.actionButtons}>
-					<ActionButton
-						variant="primary"
-						onPress={handleSubmit}
-						disabled={!hasRecording}
+						<View style={styles.recordingHeaderText}>
+							<Text style={styles.cardTitle}>
+								{isListening ? "Mendengarkan ucapan..." : "Latihan pengucapan"}
+							</Text>
+
+							<Text style={styles.cardDescription}>
+								{isListening
+									? "Ucapkan kalimat dengan jelas."
+									: "Tekan tombol mikrofon untuk mulai berbicara."}
+							</Text>
+						</View>
+					</View>
+
+					<TouchableOpacity
+						activeOpacity={0.8}
+						onPress={() => void handleToggleListening()}
+						style={[styles.micButton, isListening && styles.micButtonActive]}
 					>
 						<Ionicons
-							name="checkmark-circle-outline"
-							size={19}
-							color={Colors.surface}
+							name={isListening ? "stop" : "mic"}
+							size={30}
+							color="#FFFFFF"
 						/>
-						<ActionButtonText variant="primary" disabled={!hasRecording}>
-							Periksa Suara
-						</ActionButtonText>
-					</ActionButton>
+					</TouchableOpacity>
 
-					<ActionButton variant="secondary" onPress={handleSkip}>
-						<Ionicons
-							name="play-forward-outline"
-							size={16}
-							color={Colors.textSecondary}
-						/>
-						<ActionButtonText variant="secondary">
-							Lewati kata ini
-						</ActionButtonText>
-					</ActionButton>
+					<Text style={styles.micButtonLabel}>
+						{isListening ? "Selesaikan ucapan" : "Mulai berbicara"}
+					</Text>
+
+					{speechError ? (
+						<View style={styles.errorMessage}>
+							<Ionicons
+								name="alert-circle-outline"
+								size={18}
+								color={COLORS.danger}
+							/>
+
+							<Text style={styles.errorMessageText}>{speechError}</Text>
+						</View>
+					) : null}
+
+					<View style={styles.transcriptContainer}>
+						<View style={styles.transcriptHeader}>
+							<Text style={styles.transcriptLabel}>Hasil Transkripsi</Text>
+
+							{isFinal && transcript.trim() ? (
+								<View style={styles.finalBadge}>
+									<Ionicons
+										name="checkmark-circle"
+										size={14}
+										color={COLORS.success}
+									/>
+
+									<Text style={styles.finalBadgeText}>Selesai</Text>
+								</View>
+							) : null}
+						</View>
+
+						<Text
+							style={[
+								styles.transcriptText,
+								!transcript && styles.transcriptPlaceholder,
+							]}
+						>
+							{transcript ||
+								(isListening
+									? "Menunggu ucapanmu..."
+									: "Transkrip akan muncul di sini.")}
+						</Text>
+
+						{isListening ? (
+							<View style={styles.listeningIndicator}>
+								<ActivityIndicator size="small" color={COLORS.primary} />
+
+								<Text style={styles.listeningText}>Sedang mengenali suara</Text>
+							</View>
+						) : null}
+					</View>
+
+					{transcript.trim() && !isListening ? (
+						<TouchableOpacity
+							activeOpacity={0.7}
+							onPress={resetTranscript}
+							style={styles.resetTranscriptButton}
+						>
+							<Ionicons
+								name="refresh-outline"
+								size={16}
+								color={COLORS.primary}
+							/>
+
+							<Text style={styles.resetTranscriptText}>Ulangi ucapan</Text>
+						</TouchableOpacity>
+					) : null}
 				</View>
-			</>
+
+				<View style={styles.actionsContainer}>
+					<PrimaryButton
+						label="Periksa Jawaban"
+						icon="checkmark-circle-outline"
+						onPress={() => void handleSubmit()}
+						disabled={!canSubmit}
+					/>
+
+					<TouchableOpacity
+						activeOpacity={0.7}
+						onPress={() => void handleSkip()}
+						disabled={isListening}
+						style={[
+							styles.secondaryButton,
+							isListening && styles.disabledSecondaryButton,
+						]}
+					>
+						<Ionicons
+							name="play-skip-forward-outline"
+							size={19}
+							color={COLORS.text}
+						/>
+
+						<Text style={styles.secondaryButtonText}>Lewati kalimat ini</Text>
+					</TouchableOpacity>
+				</View>
+			</ScrollView>
 		);
-	} else {
-		content = (
-			<CenterState>
-				<ActivityIndicator size="large" color={Colors.primary} />
-			</CenterState>
-		);
-	}
+	};
 
 	return (
-		<SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-			<ScrollView
-				style={styles.scrollView}
-				contentContainerStyle={styles.scrollContent}
-				showsVerticalScrollIndicator={false}
-			>
-				{content}
-			</ScrollView>
+		<SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+			{renderHeader(
+				phase.status === "active"
+					? "Latihan pengucapan"
+					: "Pilih latihan yang ingin kamu coba",
+			)}
+
+			{phase.status === "idle" || phase.status === "loading_modules"
+				? renderLoading("Memuat modul latihan...")
+				: null}
+
+			{phase.status === "modules_error"
+				? renderError(
+						"Gagal memuat modul",
+						phase.message,
+						() => void loadModules(),
+					)
+				: null}
+
+			{phase.status === "module_list" ? renderModuleList(phase.modules) : null}
+
+			{phase.status === "starting_session"
+				? renderLoading("Menyiapkan sesi latihan...")
+				: null}
+
+			{phase.status === "active"
+				? renderActiveSession(
+						phase.sentences[phase.currentIndex],
+						phase.currentIndex,
+						phase.total,
+					)
+				: null}
+
+			{phase.status === "submitting"
+				? renderLoading("Memeriksa jawaban...")
+				: null}
+
+			{phase.status === "completing"
+				? renderLoading("Menyelesaikan sesi latihan...")
+				: null}
+
+			{phase.status === "done"
+				? renderLoading("Membuka hasil latihan...")
+				: null}
+
+			{phase.status === "answer_error"
+				? renderError(
+						"Gagal memproses jawaban",
+						phase.message,
+						handleBackToModules,
+					)
+				: null}
 		</SafeAreaView>
 	);
 }
@@ -476,254 +652,413 @@ export default function SpeakingScreen() {
 const styles = StyleSheet.create({
 	safeArea: {
 		flex: 1,
-		backgroundColor: Colors.secondary + "22",
+		backgroundColor: COLORS.background,
 	},
-	scrollView: {
+	header: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 20,
+		paddingVertical: 14,
+		backgroundColor: COLORS.surface,
+		borderBottomWidth: 1,
+		borderBottomColor: COLORS.border,
+	},
+	backButton: {
+		width: 42,
+		height: 42,
+		borderRadius: 14,
+		backgroundColor: COLORS.background,
+		alignItems: "center",
+		justifyContent: "center",
+		marginRight: 12,
+	},
+	headerTextContainer: {
 		flex: 1,
 	},
+	headerTitle: {
+		fontSize: 18,
+		fontWeight: "700",
+		color: COLORS.text,
+	},
+	headerSubtitle: {
+		fontSize: 12,
+		color: COLORS.muted,
+		marginTop: 3,
+	},
 	scrollContent: {
-		paddingHorizontal: Spacing.lg,
-		paddingTop: Spacing.md,
-		paddingBottom: Spacing.xl,
+		paddingHorizontal: 20,
+		paddingTop: 20,
+		paddingBottom: 32,
 	},
-	stateText: {
-		fontSize: FontSize.md,
-		color: Colors.textSecondary,
+	centerContainer: {
+		flex: 1,
+		alignItems: "center",
+		justifyContent: "center",
+		padding: 28,
 	},
-	errorText: {
-		fontSize: FontSize.md,
-		color: Colors.error,
+	loadingText: {
+		fontSize: 14,
+		color: COLORS.muted,
+		marginTop: 14,
 		textAlign: "center",
 	},
-	moduleListSection: {
-		paddingTop: Spacing.md,
-		paddingBottom: Spacing.lg,
+	introCard: {
+		backgroundColor: COLORS.primaryLight,
+		borderRadius: 20,
+		padding: 22,
+		marginBottom: 26,
+		alignItems: "flex-start",
 	},
-	moduleListHeader: {
+	introIcon: {
+		width: 54,
+		height: 54,
+		borderRadius: 17,
+		backgroundColor: COLORS.surface,
+		alignItems: "center",
+		justifyContent: "center",
+		marginBottom: 15,
+	},
+	introTitle: {
+		fontSize: 20,
+		fontWeight: "700",
+		color: COLORS.text,
+	},
+	introDescription: {
+		fontSize: 14,
+		lineHeight: 21,
+		color: COLORS.muted,
+		marginTop: 8,
+	},
+	sectionTitle: {
+		fontSize: 17,
+		fontWeight: "700",
+		color: COLORS.text,
+		marginBottom: 14,
+	},
+	moduleCard: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: COLORS.surface,
+		borderRadius: 17,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		padding: 16,
+		marginBottom: 12,
+	},
+	moduleIcon: {
+		width: 48,
+		height: 48,
+		borderRadius: 15,
+		backgroundColor: COLORS.primaryLight,
+		alignItems: "center",
+		justifyContent: "center",
+		marginRight: 14,
+	},
+	moduleInfo: {
+		flex: 1,
+		paddingRight: 8,
+	},
+	moduleTitle: {
+		fontSize: 15,
+		fontWeight: "700",
+		color: COLORS.text,
+	},
+	moduleDescription: {
+		fontSize: 12,
+		lineHeight: 18,
+		color: COLORS.muted,
+		marginTop: 5,
+	},
+	difficultyBadge: {
+		alignSelf: "flex-start",
+		backgroundColor: COLORS.primaryLight,
+		borderRadius: 7,
+		paddingHorizontal: 9,
+		paddingVertical: 5,
+		marginTop: 9,
+	},
+	difficultyText: {
+		fontSize: 11,
+		fontWeight: "600",
+		color: COLORS.primary,
+	},
+	progressSection: {
+		marginBottom: 22,
+	},
+	progressLabels: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		marginBottom: Spacing.lg,
-		gap: Spacing.sm,
+		marginBottom: 10,
 	},
-	moduleListHeading: {
-		flex: 1,
-		gap: Spacing.xs,
-	},
-	sectionTitle: {
-		fontSize: FontSize.xl,
-		fontWeight: "700",
-		color: Colors.text,
-	},
-	sectionSubtitle: {
-		fontSize: FontSize.sm,
-		color: Colors.textSecondary,
-		lineHeight: 20,
-	},
-	moduleCountBadge: {
-		backgroundColor: Colors.surface,
-		borderWidth: 1,
-		borderColor: Colors.border,
-		paddingHorizontal: Spacing.sm,
-		paddingVertical: 6,
-		borderRadius: Radius.full,
-	},
-	moduleCountText: {
-		fontSize: FontSize.xs,
+	progressLabel: {
+		fontSize: 13,
 		fontWeight: "600",
-		color: Colors.textSecondary,
+		color: COLORS.text,
 	},
-	wordCard: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.lg,
-		padding: Spacing.lg,
-		alignItems: "center",
-		marginBottom: Spacing.md,
-		borderWidth: 1,
-		borderColor: Colors.border,
-	},
-	mainWord: {
-		fontSize: 28,
+	progressPercentage: {
+		fontSize: 13,
 		fontWeight: "700",
-		color: Colors.text,
-		textAlign: "center",
-		marginBottom: Spacing.xs,
+		color: COLORS.primary,
 	},
-	syllableGuideLabel: {
-		fontSize: FontSize.xs,
-		fontWeight: "500",
-		color: Colors.textSecondary,
-		textAlign: "center",
-		marginBottom: Spacing.md,
-	},
-	syllableRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		flexWrap: "wrap",
-		gap: 8,
-		marginBottom: Spacing.md,
-		paddingVertical: Spacing.xs,
-	},
-	syllableBox: {
-		minWidth: 44,
-		minHeight: 48,
-		borderRadius: Radius.md,
-		justifyContent: "center",
-		alignItems: "center",
-		borderWidth: 1,
+	progressTrack: {
+		height: 8,
+		borderRadius: 99,
+		backgroundColor: COLORS.border,
 		overflow: "hidden",
 	},
-	syllableBoxNormal: {
-		backgroundColor: Colors.secondary + "18",
-		borderColor: Colors.border,
+	progressFill: {
+		height: "100%",
+		borderRadius: 99,
+		backgroundColor: COLORS.primary,
 	},
-	syllableBoxHighlighted: {
-		backgroundColor: Colors.primary,
-		borderColor: Colors.primary,
-	},
-	syllableText: {
-		fontSize: FontSize.md,
-		fontWeight: "600",
-		color: Colors.text,
-		paddingHorizontal: 10,
-		paddingTop: 8,
-		paddingBottom: 6,
-	},
-	syllableTextHighlighted: {
-		color: Colors.surface,
-		fontWeight: "700",
-	},
-	stressIndicator: {
-		width: 16,
-		height: 3,
-		borderRadius: Radius.full,
-		backgroundColor: Colors.surface,
-		marginBottom: 5,
-	},
-	wordBreak: {
-		flexDirection: "column",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 3,
-		minWidth: 30,
-		paddingHorizontal: 2,
-	},
-	wordBreakLine: {
-		width: 16,
-		height: 1,
-		backgroundColor: Colors.textSecondary,
-		opacity: 0.4,
-	},
-	wordBreakText: {
-		fontSize: 8,
-		fontWeight: "700",
-		color: Colors.textSecondary,
-		letterSpacing: 0.5,
-	},
-	stressLegend: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 6,
-		marginBottom: Spacing.lg,
-	},
-	stressLegendDot: {
-		width: 8,
-		height: 8,
-		borderRadius: 4,
-		backgroundColor: Colors.primary,
-	},
-	stressLegendText: {
-		fontSize: FontSize.xs,
-		color: Colors.textSecondary,
-	},
-	playAudioButton: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 8,
-		backgroundColor: Colors.secondary + "22",
-		paddingHorizontal: Spacing.lg,
-		paddingVertical: Spacing.sm,
-		borderRadius: Radius.md,
-		marginBottom: Spacing.md,
-	},
-	playAudioText: {
-		fontSize: FontSize.sm,
-		fontWeight: "600",
-		color: Colors.primary,
-	},
-	recordingZone: {
-		backgroundColor: Colors.surface,
-		borderRadius: Radius.lg,
-		padding: Spacing.lg,
-		alignItems: "center",
-		marginBottom: Spacing.md,
+	sentenceCard: {
+		backgroundColor: COLORS.surface,
 		borderWidth: 1,
-		borderColor: Colors.border,
+		borderColor: COLORS.border,
+		borderRadius: 20,
+		padding: 22,
+		marginBottom: 18,
 	},
-	timerRow: {
+	sentenceLabelRow: {
+		flexDirection: "row",
 		alignItems: "center",
-		marginBottom: Spacing.md,
+		marginBottom: 18,
 	},
-	timerText: {
-		fontSize: FontSize.md,
+	sentenceLabel: {
+		fontSize: 11,
+		fontWeight: "700",
+		letterSpacing: 0.8,
+		color: COLORS.primary,
+		marginLeft: 8,
+	},
+	sentenceText: {
+		fontSize: 25,
+		fontWeight: "700",
+		lineHeight: 36,
+		color: COLORS.text,
+	},
+	guideContainer: {
+		marginTop: 22,
+		padding: 14,
+		backgroundColor: COLORS.primaryLight,
+		borderRadius: 13,
+	},
+	guideLabel: {
+		fontSize: 12,
+		color: COLORS.muted,
+		marginBottom: 7,
+	},
+	guideText: {
+		fontSize: 16,
 		fontWeight: "600",
-		color: Colors.text,
-		marginBottom: 4,
+		color: COLORS.primary,
+		lineHeight: 24,
 	},
-	timerHint: {
-		fontSize: FontSize.xs,
-		fontWeight: "500",
-		color: Colors.textSecondary,
-		textAlign: "center",
-		paddingHorizontal: 20,
+	recordingCard: {
+		backgroundColor: COLORS.surface,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 20,
+		padding: 20,
+		alignItems: "center",
 	},
-	liveWaveRow: {
+	recordingHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		alignSelf: "stretch",
+		marginBottom: 22,
+	},
+	recordingIcon: {
+		width: 46,
+		height: 46,
+		borderRadius: 14,
+		backgroundColor: COLORS.primaryLight,
+		alignItems: "center",
+		justifyContent: "center",
+		marginRight: 12,
+	},
+	recordingHeaderText: {
+		flex: 1,
+	},
+	cardTitle: {
+		fontSize: 15,
+		fontWeight: "700",
+		color: COLORS.text,
+	},
+	cardDescription: {
+		fontSize: 12,
+		color: COLORS.muted,
+		lineHeight: 18,
+		marginTop: 4,
+	},
+	micButton: {
+		width: 76,
+		height: 76,
+		borderRadius: 38,
+		backgroundColor: COLORS.primary,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	micButtonActive: {
+		backgroundColor: COLORS.danger,
+	},
+	micButtonLabel: {
+		fontSize: 13,
+		fontWeight: "600",
+		color: COLORS.text,
+		marginTop: 12,
+		marginBottom: 22,
+	},
+	transcriptContainer: {
+		width: "100%",
+		backgroundColor: COLORS.background,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 14,
+		padding: 15,
+	},
+	transcriptHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 11,
+	},
+	transcriptLabel: {
+		fontSize: 12,
+		fontWeight: "700",
+		color: COLORS.text,
+	},
+	finalBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: COLORS.successLight,
+		borderRadius: 8,
+		paddingHorizontal: 8,
+		paddingVertical: 5,
+	},
+	finalBadgeText: {
+		fontSize: 10,
+		fontWeight: "600",
+		color: COLORS.success,
+		marginLeft: 4,
+	},
+	transcriptText: {
+		fontSize: 15,
+		lineHeight: 23,
+		color: COLORS.text,
+	},
+	transcriptPlaceholder: {
+		color: COLORS.muted,
+	},
+	listeningIndicator: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginTop: 12,
+	},
+	listeningText: {
+		fontSize: 12,
+		color: COLORS.primary,
+		marginLeft: 8,
+	},
+	errorMessage: {
+		flexDirection: "row",
+		alignItems: "flex-start",
+		alignSelf: "stretch",
+		padding: 12,
+		marginBottom: 12,
+		backgroundColor: COLORS.dangerLight,
+		borderRadius: 10,
+	},
+	errorMessageText: {
+		flex: 1,
+		fontSize: 12,
+		lineHeight: 18,
+		color: COLORS.danger,
+		marginLeft: 8,
+	},
+	resetTranscriptButton: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		gap: 8,
-		marginBottom: Spacing.lg,
-		height: 32,
+		paddingVertical: 13,
 	},
-	liveWaveBar: {
-		width: 4,
-		backgroundColor: Colors.primary,
-		borderRadius: Radius.full,
+	resetTranscriptText: {
+		fontSize: 12,
+		fontWeight: "600",
+		color: COLORS.primary,
+		marginLeft: 6,
 	},
-	recordButtonArea: {
+	actionsContainer: {
+		marginTop: 20,
+	},
+	primaryButton: {
+		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		height: 120,
+		minHeight: 52,
+		paddingHorizontal: 18,
+		borderRadius: 14,
+		backgroundColor: COLORS.primary,
 	},
-	recordShadowRing: {
-		position: "absolute",
-		width: 80,
-		height: 80,
-		borderRadius: 40,
-		backgroundColor: Colors.primary,
-		opacity: 0.08,
-	},
-	recordButton: {
-		width: 104,
-		height: 104,
-		borderRadius: 52,
-		backgroundColor: Colors.primary,
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 4,
-	},
-	recordButtonRecording: {
-		backgroundColor: Colors.error,
-	},
-	recordButtonText: {
-		fontSize: 10,
+	primaryButtonText: {
+		fontSize: 14,
 		fontWeight: "700",
-		color: Colors.surface,
-		letterSpacing: 0.5,
+		color: "#FFFFFF",
+		marginLeft: 9,
 	},
-	actionButtons: {
-		marginBottom: Spacing.lg,
+	disabledButton: {
+		opacity: 0.45,
+	},
+	secondaryButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		minHeight: 50,
+		marginTop: 10,
+		borderRadius: 14,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		backgroundColor: COLORS.surface,
+	},
+	secondaryButtonText: {
+		fontSize: 13,
+		fontWeight: "600",
+		color: COLORS.text,
+		marginLeft: 8,
+	},
+	disabledSecondaryButton: {
+		opacity: 0.45,
+	},
+	emptyCard: {
+		alignItems: "center",
+		backgroundColor: COLORS.surface,
+		padding: 24,
+		borderRadius: 18,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+	},
+	emptyTitle: {
+		fontSize: 17,
+		fontWeight: "700",
+		color: COLORS.text,
+		textAlign: "center",
+		marginTop: 14,
+	},
+	emptyDescription: {
+		fontSize: 13,
+		lineHeight: 20,
+		color: COLORS.muted,
+		textAlign: "center",
+		marginTop: 8,
+		marginBottom: 20,
+	},
+	errorIconContainer: {
+		width: 70,
+		height: 70,
+		borderRadius: 35,
+		backgroundColor: COLORS.dangerLight,
+		alignItems: "center",
+		justifyContent: "center",
 	},
 });
